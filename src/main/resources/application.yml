@@ -1,0 +1,21 @@
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+spring:
+  application:
+    name: ai-code-mother-backend
+
+
+# springdoc-openapi
+springdoc:
+  group-configs:
+    - group: v1
+      packages-to-scan: com.yff.aicodemother.controller
+
+# knife4j
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
