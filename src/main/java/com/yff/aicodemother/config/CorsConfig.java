@@ -19,7 +19,7 @@ public class CorsConfig implements WebMvcConfigurer {
                 .allowedOriginPatterns("*") //允许所有来源
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") //允许的HTTP方法
                 .allowedHeaders("*") //允许所有请求头
-                .allowCredentials(true) //是否允许发送Cookie
+                .allowCredentials(false) //是否允许发送Cookie
                 .exposedHeaders("*");    //允许客户端访问的响应头
     }
 }
