@@ -1,6 +1,8 @@
 package com.yff.aicodemother.controller;
 
 
+import com.yff.aicodemother.common.BaseResponse;
+import com.yff.aicodemother.common.ResultUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -14,8 +16,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class HealthController {
 
     @GetMapping("/")
-    public String checkHealth() {
-        return "OK";
+    public BaseResponse<String> checkHealth() {
+        return ResultUtils.success("OK");
     }
 
 }

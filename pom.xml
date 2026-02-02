@@ -88,6 +88,8 @@
                         <path>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
+                            <!-- 这里必须手动指定版本，否则会报错！！！这里不受springboot版本的影响 -->
+                            <version>1.18.36</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
