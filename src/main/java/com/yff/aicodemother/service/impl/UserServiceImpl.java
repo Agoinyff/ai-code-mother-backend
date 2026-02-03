@@ -1,20 +1,29 @@
 package com.yff.aicodemother.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
+import com.yff.aicodemother.constant.UserConstant;
 import com.yff.aicodemother.exception.BusinessException;
 import com.yff.aicodemother.exception.ErrorCode;
 import com.yff.aicodemother.model.entity.User;
 import com.yff.aicodemother.mapper.UserMapper;
 import com.yff.aicodemother.model.enums.UserRoleEnum;
 import com.yff.aicodemother.model.vo.LoginVo;
+import com.yff.aicodemother.model.vo.UserVo;
 import com.yff.aicodemother.service.UserService;
+import com.yff.aicodemother.utils.JwtUtil;
 import jakarta.annotation.Resource;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * 用户 服务层实现。
@@ -27,6 +36,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
 
     @Value("${password.salt}")
     private String SALT;
+
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
 
 
     @Override
@@ -100,15 +112,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
         }
 
         //TODO 创建jwt，存redis
-
+        String token = JwtUtil.createToken(user.getId());
+        stringRedisTemplate.opsForValue().set(UserConstant.USER_LOGIN_STATE+user.getId(),token,1, TimeUnit.DAYS); //设置过期时间为1天
 
 
         //TODO 数据脱敏返回
-
-        return null;
+        LoginVo loginVo = new LoginVo();
+        loginVo.setUserVo(BeanUtil.copyProperties(user, UserVo.class));
+        loginVo.setToken(token);
+        return loginVo;
 
     }
 
+    /**
+     * 用户密码加密方法
+     */
     public String getEncryptedPassword(String userPassword) {
 
         return DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
