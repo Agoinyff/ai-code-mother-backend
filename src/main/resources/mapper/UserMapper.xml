@@ -4,4 +4,32 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.yff.aicodemother.mapper.UserMapper">
 
+    <!-- 分页查询用户列表（直接返回 VO，数据脱敏） -->
+    <select id="selectUserVoPage" resultType="com.yff.aicodemother.model.vo.UserVo">
+        SELECT 
+            userAccount, userName, userAvatar, userProfile, 
+            userRole, shareCode, inviteUser, vipExpireTime, 
+            vipCode, vipNumber, createTime, updateTime
+        FROM user
+        <where>
+            isDelete = 0
+            <if test="query.id != null">
+                AND id = #{query.id}
+            </if>
+            <if test="query.userAccount != null and query.userAccount != ''">
+                AND userAccount LIKE CONCAT('%', #{query.userAccount}, '%')
+            </if>
+            <if test="query.userName != null and query.userName != ''">
+                AND userName LIKE CONCAT('%', #{query.userName}, '%')
+            </if>
+            <if test="query.userProfile != null and query.userProfile != ''">
+                AND userProfile LIKE CONCAT('%', #{query.userProfile}, '%')
+            </if>
+            <if test="query.userRole != null and query.userRole != ''">
+                AND userRole = #{query.userRole}
+            </if>
+        </where>
+        ORDER BY createTime DESC
+    </select>
+
 </mapper>

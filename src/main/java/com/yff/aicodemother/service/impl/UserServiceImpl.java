@@ -3,10 +3,13 @@ package com.yff.aicodemother.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yff.aicodemother.constant.UserConstant;
 import com.yff.aicodemother.exception.BusinessException;
 import com.yff.aicodemother.exception.ErrorCode;
+import com.yff.aicodemother.model.dto.user.UserQueryRequest;
 import com.yff.aicodemother.model.entity.User;
 import com.yff.aicodemother.mapper.UserMapper;
 import com.yff.aicodemother.model.enums.UserRoleEnum;
@@ -14,16 +17,15 @@ import com.yff.aicodemother.model.vo.LoginVo;
 import com.yff.aicodemother.model.vo.UserVo;
 import com.yff.aicodemother.service.UserService;
 import com.yff.aicodemother.utils.JwtUtil;
-import jakarta.annotation.Resource;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * 用户 服务层实现。
@@ -39,6 +41,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
+    private UserMapper userMapper;
 
     @Override
     public Long userRegister(String userAccount, String userPassword, String checkPassword) {
@@ -135,6 +140,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             return null;
         }
         return BeanUtil.copyProperties(user, UserVo.class);
+    }
+
+    @Override
+    public Page<UserVo> listUserVoByPage(UserQueryRequest userQueryRequest) {
+        int pageNum = userQueryRequest.getPageNum();
+        int pageSize = userQueryRequest.getPageSize();
+
+        // 分页查询用户（直接返回 VO，无需手动转换）
+        IPage<UserVo> userVoPage = userMapper.selectUserVoPage(new Page<>(pageNum, pageSize), userQueryRequest);
+
+        return (Page<UserVo>) userVoPage;
     }
 
     /**
