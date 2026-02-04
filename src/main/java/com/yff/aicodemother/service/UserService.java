@@ -31,4 +31,12 @@ public interface UserService extends IService<User> {
      * @return 登录信息
      */
     LoginVo login(String userAccount, String userPassword);
+
+    /**
+     * 用户登出
+     *
+     * @param userId 用户id
+     * @return 是否登出成功
+     */
+    Boolean logout(Long userId);
 }

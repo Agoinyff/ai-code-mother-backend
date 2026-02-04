@@ -2,18 +2,16 @@ package com.yff.aicodemother.controller;
 
 import com.yff.aicodemother.common.BaseResponse;
 import com.yff.aicodemother.common.ResultUtils;
+import com.yff.aicodemother.common.login.UserHolder;
 import com.yff.aicodemother.exception.ErrorCode;
 import com.yff.aicodemother.exception.ThrowUtils;
 import com.yff.aicodemother.model.dto.user.UserLoginRequest;
 import com.yff.aicodemother.model.dto.user.UserRegisterRequest;
 import com.yff.aicodemother.model.vo.LoginVo;
 import io.swagger.v3.oas.annotations.Operation;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.yff.aicodemother.service.UserService;
-import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 用户 控制层。
@@ -57,5 +55,12 @@ public class UserController {
         return ResultUtils.success(loginVo);
     }
 
+
+    @PostMapping("/logout")
+    @Operation(summary = "用户登出")
+    public BaseResponse<Boolean> userLogout() {
+        Boolean result = userService.logout(UserHolder.getUserId());
+        return ResultUtils.success(result);
+    }
 
 }

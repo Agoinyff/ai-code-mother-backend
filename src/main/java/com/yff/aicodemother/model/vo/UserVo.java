@@ -1,6 +1,7 @@
 package com.yff.aicodemother.model.vo;
 
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.mybatisflex.annotation.Column;
 import lombok.Data;
 
@@ -81,12 +82,14 @@ public class UserVo implements Serializable {
      * 创建时间
      */
     @Column("createTime")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime createTime;
 
     /**
      * 更新时间
      */
     @Column("updateTime")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime updateTime;
 
 

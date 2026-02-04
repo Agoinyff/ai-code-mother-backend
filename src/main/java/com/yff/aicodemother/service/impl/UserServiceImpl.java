@@ -111,17 +111,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
         }
 
-        //TODO 创建jwt，存redis
+        //创建jwt，存redis
         String token = JwtUtil.createToken(user.getId());
         stringRedisTemplate.opsForValue().set(UserConstant.USER_LOGIN_STATE+user.getId(),token,1, TimeUnit.DAYS); //设置过期时间为1天
 
 
-        //TODO 数据脱敏返回
+        //数据脱敏返回
         LoginVo loginVo = new LoginVo();
         loginVo.setUserVo(BeanUtil.copyProperties(user, UserVo.class));
         loginVo.setToken(token);
         return loginVo;
 
+    }
+
+    @Override
+    public Boolean logout(Long userId) {
+
+
+        Boolean delete = stringRedisTemplate.delete(UserConstant.USER_LOGIN_STATE + userId);
+
+        return delete;
     }
 
     /**
