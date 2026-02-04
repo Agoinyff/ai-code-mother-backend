@@ -8,6 +8,7 @@ import com.yff.aicodemother.exception.ThrowUtils;
 import com.yff.aicodemother.model.dto.user.UserLoginRequest;
 import com.yff.aicodemother.model.dto.user.UserRegisterRequest;
 import com.yff.aicodemother.model.vo.LoginVo;
+import com.yff.aicodemother.model.vo.UserVo;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +44,12 @@ public class UserController {
         return ResultUtils.success(result);
     }
 
+    /**
+     * 用户登录
+     *
+     * @param userLoginRequest 用户登录请求体
+     * @return 登录信息
+     */
     @PostMapping("/login")
     @Operation(summary = "用户登录")
     public BaseResponse<LoginVo> userLogin(@RequestBody UserLoginRequest userLoginRequest) {
@@ -56,11 +63,31 @@ public class UserController {
     }
 
 
+    /**
+     * 用户登出
+     *
+     * @return 是否登出成功
+     */
     @PostMapping("/logout")
     @Operation(summary = "用户登出")
     public BaseResponse<Boolean> userLogout() {
         Boolean result = userService.logout(UserHolder.getUserId());
         return ResultUtils.success(result);
     }
+
+
+    /**
+     * 获取登录用户信息
+     *
+     * @return 登录用户信息
+     */
+    @PostMapping("/get/login")
+    public BaseResponse<UserVo> getLoginUserInfo(){
+        Long userId = UserHolder.getUserId();
+        UserVo userVo = userService.getUserVoById(userId);
+        return ResultUtils.success(userVo);
+    }
+
+
 
 }

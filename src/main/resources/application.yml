@@ -33,3 +33,7 @@ knife4j:
 
 password:
   SALT: a-very-long-secret-key-at-least-32-bytes!!!
+
+logging:
+  level:
+    com.yff.aicodemother: DEBUG

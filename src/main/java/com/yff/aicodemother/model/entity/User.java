@@ -1,15 +1,11 @@
 package com.yff.aicodemother.model.entity;
 
-import com.mybatisflex.annotation.Column;
-import com.mybatisflex.annotation.Id;
-import com.mybatisflex.annotation.KeyType;
-import com.mybatisflex.annotation.Table;
+import com.baomidou.mybatisplus.annotation.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
 import java.io.Serial;
 
-import com.mybatisflex.core.keygen.KeyGenerators;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -25,7 +21,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table("user")
+@TableName("user")
 public class User implements Serializable {
 
     @Serial
@@ -34,97 +30,98 @@ public class User implements Serializable {
     /**
      * id
      */
-    @Id(keyType = KeyType.Generator,value = KeyGenerators.snowFlakeId) //使用雪花算法生成ID
+    @TableId(type = IdType.ASSIGN_ID) // 使用雪花算法生成ID
     private Long id;
 
     /**
      * 账号
      */
-    @Column("userAccount")
+    @TableField("userAccount")
     private String userAccount;
 
     /**
      * 密码
      */
-    @Column("userPassword")
+    @TableField("userPassword")
     private String userPassword;
 
     /**
      * 用户昵称
      */
-    @Column("userName")
+    @TableField("userName")
     private String userName;
 
     /**
      * 用户头像
      */
-    @Column("userAvatar")
+    @TableField("userAvatar")
     private String userAvatar;
 
     /**
      * 用户简介
      */
-    @Column("userProfile")
+    @TableField("userProfile")
     private String userProfile;
 
     /**
      * 用户角色: user/admin
      */
-    @Column("userRole")
+    @TableField("userRole")
     private String userRole;
 
     /**
      * 分享码
      */
-    @Column("shareCode")
+    @TableField("shareCode")
     private String shareCode;
 
     /**
      * 邀请用户 id
      */
-    @Column("inviteUser")
+    @TableField("inviteUser")
     private Long inviteUser;
 
     /**
      * 会员过期时间
      */
-    @Column("vipExpireTime")
+    @TableField("vipExpireTime")
     private LocalDateTime vipExpireTime;
 
     /**
      * 会员兑换码
      */
-    @Column("vipCode")
+    @TableField("vipCode")
     private String vipCode;
 
     /**
      * 会员编号
      */
-    @Column("vipNumber")
+    @TableField("vipNumber")
     private Long vipNumber;
 
     /**
      * 编辑时间
      */
-    @Column("editTime")
+    @TableField("editTime")
     private LocalDateTime editTime;
 
     /**
      * 创建时间
      */
-    @Column("createTime")
+    @TableField("createTime")
     private LocalDateTime createTime;
 
     /**
      * 更新时间
      */
-    @Column("updateTime")
+    @TableField("updateTime")
     private LocalDateTime updateTime;
 
     /**
      * 是否删除
      */
-    @Column(value = "isDelete", isLogicDelete = true)
+    @TableField("isDelete")
+    @TableLogic
     private Integer isDelete;
 
 }

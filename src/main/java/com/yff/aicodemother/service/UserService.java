@@ -1,8 +1,9 @@
 package com.yff.aicodemother.service;
 
-import com.mybatisflex.core.service.IService;
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.yff.aicodemother.model.entity.User;
 import com.yff.aicodemother.model.vo.LoginVo;
+import com.yff.aicodemother.model.vo.UserVo;
 
 /**
  * 用户 服务层。
@@ -22,7 +23,6 @@ public interface UserService extends IService<User> {
      */
     Long userRegister(String userAccount, String userPassword, String checkPassword);
 
-
     /**
      * 用户登录
      *
@@ -39,4 +39,6 @@ public interface UserService extends IService<User> {
      * @return 是否登出成功
      */
     Boolean logout(Long userId);
+
+    UserVo getUserVoById(Long userId);
 }

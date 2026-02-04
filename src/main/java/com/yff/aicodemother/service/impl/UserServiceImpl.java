@@ -2,8 +2,8 @@ package com.yff.aicodemother.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
-import com.mybatisflex.core.query.QueryWrapper;
-import com.mybatisflex.spring.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yff.aicodemother.constant.UserConstant;
 import com.yff.aicodemother.exception.BusinessException;
 import com.yff.aicodemother.exception.ErrorCode;
@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
  * @since 2026-02-02 15:36:30
  */
 @Service
-public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements UserService{
+public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
     @Value("${password.salt}")
     private String SALT;
@@ -40,54 +40,52 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
 
-
     @Override
     public Long userRegister(String userAccount, String userPassword, String checkPassword) {
 
-        //1.校验
-        if (StrUtil.hasBlank(userAccount, userPassword, checkPassword)){
+        // 1.校验
+        if (StrUtil.hasBlank(userAccount, userPassword, checkPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
         }
-        if (userAccount.length() < 4){
+        if (userAccount.length() < 4) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号过短");
         }
-        if (userPassword.length() < 8 || checkPassword.length() < 8){
+        if (userPassword.length() < 8 || checkPassword.length() < 8) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过短");
         }
-        if (!userPassword.equals(checkPassword)){
+        if (!userPassword.equals(checkPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次输入的密码不一致");
         }
 
-        //2.检查是否重复
-        QueryWrapper queryWrapper = new QueryWrapper();
+        // 2.检查是否重复
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("userAccount", userAccount);
-        long count = this.mapper.selectCountByQuery(queryWrapper);
-        if (count > 0){
+        long count = this.count(queryWrapper);
+        if (count > 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号已存在");
         }
 
-        //3。对秘密进行加密
+        // 3。对秘密进行加密
         String encryptPassword = getEncryptedPassword(userPassword);
 
-        //4.插入数据
+        // 4.插入数据
         User user = new User();
         user.setUserAccount(userAccount);
         user.setUserPassword(encryptPassword);
         user.setUserName("无名");
         user.setUserRole(UserRoleEnum.USER.getValue());
         boolean saveResult = this.save(user);
-        if (!saveResult){
+        if (!saveResult) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
         }
         return user.getId();
-
 
     }
 
     @Override
     public LoginVo login(String userAccount, String userPassword) {
 
-        //1.校验
+        // 1.校验
         if (StrUtil.hasBlank(userAccount, userPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
         }
@@ -98,25 +96,23 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");
         }
 
-        //2.加密
+        // 2.加密
         String encryptPassword = getEncryptedPassword(userPassword);
 
-        //查询用户是否存在
-
-        QueryWrapper queryWrapper = new QueryWrapper();
+        // 查询用户是否存在
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("userAccount", userAccount);
         queryWrapper.eq("userPassword", encryptPassword);
-        User user = this.mapper.selectOneByQuery(queryWrapper);
+        User user = this.getOne(queryWrapper);
         if (user == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
         }
 
-        //创建jwt，存redis
+        // 创建jwt，存redis
         String token = JwtUtil.createToken(user.getId());
-        stringRedisTemplate.opsForValue().set(UserConstant.USER_LOGIN_STATE+user.getId(),token,1, TimeUnit.DAYS); //设置过期时间为1天
+        stringRedisTemplate.opsForValue().set(UserConstant.USER_LOGIN_STATE + user.getId(), token, 1, TimeUnit.DAYS); // 设置过期时间为1天
 
-
-        //数据脱敏返回
+        // 数据脱敏返回
         LoginVo loginVo = new LoginVo();
         loginVo.setUserVo(BeanUtil.copyProperties(user, UserVo.class));
         loginVo.setToken(token);
@@ -127,10 +123,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
     @Override
     public Boolean logout(Long userId) {
 
-
         Boolean delete = stringRedisTemplate.delete(UserConstant.USER_LOGIN_STATE + userId);
 
         return delete;
+    }
+
+    @Override
+    public UserVo getUserVoById(Long userId) {
+        User user = this.getById(userId);
+        if (user == null) {
+            return null;
+        }
+        return BeanUtil.copyProperties(user, UserVo.class);
     }
 
     /**
