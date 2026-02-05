@@ -1,0 +1,49 @@
+package com.yff.aicodemother.ai.model.enums;
+
+import cn.hutool.core.util.ObjUtil;
+import lombok.Getter;
+
+/**
+ * @author yff
+ * @date 2026-02-05 13:49:10
+ * 生成类型枚举
+ */
+@Getter
+public enum CodeGenTypeEnum {
+
+
+    HTML("原生HTML模式", "html"),
+    MULTI_FILE("原生多文件模式", "multi_file");
+
+    private final String text;
+    private final String value;
+
+
+    CodeGenTypeEnum(String text, String value) {
+        this.text = text;
+        this.value = value;
+    }
+
+
+    /**
+     * 根据值获取枚举
+     *
+     * @param value 值
+     * @return 枚举对象
+     */
+    public static CodeGenTypeEnum getEnumByValue(String value) {
+
+        if (ObjUtil.isEmpty(value)) {
+            return null;
+        }
+
+        for (CodeGenTypeEnum anEnum : CodeGenTypeEnum.values()) {
+            if (anEnum.getValue().equals(value)) {
+                return anEnum;
+            }
+        }
+        return null;
+    }
+
+
+}

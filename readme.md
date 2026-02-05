@@ -1,29 +1,10 @@
-# Getting Started
 
-### Reference Documentation
+## 目前已经能够实现调用AI生成代码，但是直接返回字符串的方式不便于后续解析代码并保存为文件。因此需要一种更结构化的方式来返回代码片段
+     
+我们可以利用LangChain4j的结构化输出特性解决这一点
+### 1. 构建生成结果类
+### 2.修改AI服务接口，让方法返回结构化对象
 
-For further reference, please consider the following sections:
 
-* [Official Apache Maven documentation](https://maven.apache.org/guides/index.html)
-* [Spring Boot Maven Plugin Reference Guide](https://docs.spring.io/spring-boot/3.5.10/maven-plugin)
-* [Create an OCI image](https://docs.spring.io/spring-boot/3.5.10/maven-plugin/build-image.html)
-* [Spring Boot DevTools](https://docs.spring.io/spring-boot/3.5.10/reference/using/devtools.html)
-* [Spring Web](https://docs.spring.io/spring-boot/3.5.10/reference/web/servlet.html)
-
-### Guides
-
-The following guides illustrate how to use some features concretely:
-
-* [Accessing data with MySQL](https://spring.io/guides/gs/accessing-data-mysql/)
-* [Building a RESTful Web Service](https://spring.io/guides/gs/rest-service/)
-* [Serving Web Content with Spring MVC](https://spring.io/guides/gs/serving-web-content/)
-* [Building REST services with Spring](https://spring.io/guides/tutorials/rest/)
-
-### Maven Parent overrides
-
-Due to Maven's design, elements are inherited from the parent POM to the project POM.
-While most of the inheritance is fine, it also inherits unwanted elements like `<license>` and `<developers>` from the
-parent.
-To prevent this, the project POM contains empty overrides for these elements.
-If you manually switch to a different parent and actually want the inheritance, you need to remove those overrides.
-
+之后我们需要把AI生成的代码保存到本地中，这就需要一个文件写入的工具类
+  -- 这里使用门面模式设计方法，简化文件写入的操作

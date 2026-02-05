@@ -1,6 +1,8 @@
 package com.yff.aicodemother.ai;
 
 
+import com.yff.aicodemother.ai.model.HtmlCodeResult;
+import com.yff.aicodemother.ai.model.MultiFileCodeResult;
 import dev.langchain4j.service.SystemMessage;
 import org.springframework.stereotype.Service;
 
@@ -20,7 +22,7 @@ public interface AICodeGeneratorService {
      * @return 生成的HTML代码
      */
     @SystemMessage(fromResource = "prompt/codegen-html-system-prompt.txt")
-    String generateHtmlCode(String userMessage);
+    HtmlCodeResult generateHtmlCode(String userMessage);
 
     /**
      * 生成多文件代码
@@ -29,7 +31,7 @@ public interface AICodeGeneratorService {
      * @return 生成的多文件代码，使用特定格式进行分隔
      */
     @SystemMessage(fromResource = "prompt/codegen-multi-file-system-prompt.txt")
-    String generateMultiFileCode(String userMessage);
+    MultiFileCodeResult generateMultiFileCode(String userMessage);
 
 
 }

@@ -1,5 +1,7 @@
 package com.yff.aicodemother.ai;
 
+import com.yff.aicodemother.ai.model.HtmlCodeResult;
+import com.yff.aicodemother.ai.model.MultiFileCodeResult;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -18,14 +20,14 @@ class AiCodeGeneratorServiceTest {
 
     @Test
     void GenerateHtmlCode(){
-        String result = aiCodeGeneratorService.generateHtmlCode("请帮我生成一个简单的个人简介网页代码，包含姓名、照片和自我介绍。");
-        Assertions.assertNotNull(result);
+        HtmlCodeResult htmlCodeResult = aiCodeGeneratorService.generateHtmlCode("请帮我生成一个简单的个人简介网页代码，包含姓名、照片和自我介绍。");
+        Assertions.assertNotNull(htmlCodeResult);
     }
 
     @Test
     void GenerateMultiFileCode(){
-        String result = aiCodeGeneratorService.generateMultiFileCode("请帮我生成一个留言板页面");
-        Assertions.assertNotNull(result);
+        MultiFileCodeResult multiFileCodeResult = aiCodeGeneratorService.generateMultiFileCode("请帮我生成一个留言板页面");
+        Assertions.assertNotNull(multiFileCodeResult);
     }
 
 

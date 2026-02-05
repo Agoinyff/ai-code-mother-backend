@@ -16,7 +16,7 @@ import org.springframework.context.annotation.Configuration;
 public class AiCodeGeneratorServiceFactory {
 
 
-    @Resource
+    @Autowired
     private ChatModel chatModel;
 
     @Bean
