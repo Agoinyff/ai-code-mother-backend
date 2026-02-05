@@ -7,8 +7,10 @@ import com.yff.aicodemother.ai.model.MultiFileCodeResult;
 import com.yff.aicodemother.ai.model.enums.CodeGenTypeEnum;
 import com.yff.aicodemother.exception.BusinessException;
 import com.yff.aicodemother.exception.ErrorCode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 import java.io.File;
 
@@ -19,6 +21,7 @@ import java.io.File;
  * AI生成代码门面类，组合生成和保存功能，提供统一的代码生成接口
  */
 @Service
+@Slf4j
 public class AiCodeGeneratorFacade {
 
 
@@ -50,6 +53,107 @@ public class AiCodeGeneratorFacade {
 
 
     }
+
+    /**
+     * 统一入口：根据类型生成并保存代码文件(流式)
+     *
+     * @param userMessage     用户提示词
+     * @param codeGenTypeEnum 代码生成类型枚举
+     * @return 生成的代码流
+     */
+    public Flux<String> generateAndSaveCodeStream(String userMessage, CodeGenTypeEnum codeGenTypeEnum) {
+
+        if (codeGenTypeEnum == null) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "生成类型为空");
+        }
+
+        return switch (codeGenTypeEnum) {
+            case HTML -> generateAndSaveHtmlCodeStream(userMessage);
+            case MULTI_FILE -> generateAndSaveMultiFileCodeStream(userMessage);
+            default -> {
+                String errorMsg = String.format("不支持的生成类型：%s", codeGenTypeEnum.getValue());
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, errorMsg);
+            }
+        };
+
+
+    }
+
+    /**
+     * 流式生成并保存多文件代码
+     *
+     * @param userMessage 用户提示词
+     * @return 生成的代码流
+     */
+    private Flux<String> generateAndSaveMultiFileCodeStream(String userMessage) {
+
+        Flux<String> stringFluxResult = aiCodeGeneratorService.generateMultiFileCodeStream(userMessage);
+
+        StringBuilder codeBuilder = new StringBuilder();
+
+
+        return stringFluxResult
+                .doOnNext(
+                        chunk -> {
+                            //在这里可以处理每个代码块的逻辑，例如拼接完整内容
+                            codeBuilder.append(chunk);
+                        }
+                )
+                .doOnComplete(
+                        //在流式传输完成后执行保存操作
+                        () -> {
+                            try {
+                                String completeCode = codeBuilder.toString();
+                                log.info("完整多文件代码内容：\n{}", completeCode);
+                                MultiFileCodeResult multiFileCodeResult = CodeParser.parseMultiFileCode(completeCode); //通过解析器获取完整代码结果对象
+                                File savedDir = CodeFileSaver.saveMultiFileCodeResult(multiFileCodeResult);//保存文件
+                                log.info("多文件代码已保存到目录：{}", savedDir.getAbsolutePath());
+                            } catch (Exception e) {
+                                log.error("保存失败：{}", e.getMessage());
+                            }
+                        }
+                );
+
+
+
+    }
+
+    /**
+     * 流式生成并保存HTML代码
+     *
+     * @param userMessage 用户提示词
+     * @return 生成的代码流
+     */
+    private Flux<String> generateAndSaveHtmlCodeStream(String userMessage) {
+
+        Flux<String> stringFluxResult = aiCodeGeneratorService.generateHtmlCodeStream(userMessage);
+
+
+        StringBuilder codeBuilder = new StringBuilder();
+        return stringFluxResult
+                .doOnNext(
+                        chunk -> {
+                            //在这里可以处理每个代码块的逻辑，例如拼接完整内容
+                            codeBuilder.append(chunk);
+                        }
+                )
+                .doOnComplete(
+                        //在流式传输完成后执行保存操作
+                        () -> {
+                            try {
+                                String completeHtmlCode = codeBuilder.toString();
+                                HtmlCodeResult htmlCodeResult = CodeParser.parseHtmlCode(completeHtmlCode); //通过解析器获取完整代码结果对象
+                                File savedDir = CodeFileSaver.saveHtmlCodeResult(htmlCodeResult);//保存文件
+                                log.info("HTML代码已保存到目录：{}", savedDir.getAbsolutePath());
+                            } catch (Exception e) {
+                                log.error("保存失败：{}", e.getMessage());
+                            }
+                        }
+                );
+
+
+    }
+
 
     /**
      * 生成并保存多文件代码
