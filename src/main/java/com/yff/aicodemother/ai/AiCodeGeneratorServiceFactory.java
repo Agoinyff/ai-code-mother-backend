@@ -2,6 +2,7 @@ package com.yff.aicodemother.ai;
 
 
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.service.AiServices;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,9 +20,17 @@ public class AiCodeGeneratorServiceFactory {
     @Autowired
     private ChatModel chatModel;
 
+    @Autowired
+    private StreamingChatModel streamingChatModel;
+
+
+
     @Bean
     public AICodeGeneratorService aiCodeGeneratorService(){
-        return AiServices.create(AICodeGeneratorService.class,chatModel);
+        return AiServices.builder(AICodeGeneratorService.class)
+                .chatModel(chatModel)
+                .streamingChatModel(streamingChatModel)
+                .build();
     }
 
 
