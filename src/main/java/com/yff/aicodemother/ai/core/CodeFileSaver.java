@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
  * @date 2026-02-05 13:53:39
  * 代码文件保存器工具类
  */
+@Deprecated
 public class CodeFileSaver {
 
     // 文件保存跟目录 System.getProperty("user.dir") 获取 当前工作目录（即项目运行时的根目录）
