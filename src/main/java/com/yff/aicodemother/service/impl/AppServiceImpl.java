@@ -1,0 +1,165 @@
+package com.yff.aicodemother.service.impl;
+
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.yff.aicodemother.exception.BusinessException;
+import com.yff.aicodemother.exception.ErrorCode;
+import com.yff.aicodemother.mapper.AppMapper;
+import com.yff.aicodemother.model.dto.app.AppAdminQueryRequest;
+import com.yff.aicodemother.model.dto.app.AppAdminUpdateRequest;
+import com.yff.aicodemother.model.dto.app.AppAddRequest;
+import com.yff.aicodemother.model.dto.app.AppQueryRequest;
+import com.yff.aicodemother.model.dto.app.AppUpdateRequest;
+import com.yff.aicodemother.model.entity.App;
+import com.yff.aicodemother.model.vo.AppVo;
+import com.yff.aicodemother.service.AppService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+/**
+ * 应用 服务层实现。
+ *
+ * @author yff
+ * @since 2026-02-06
+ */
+@Service
+public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppService {
+
+    @Autowired
+    private AppMapper appMapper;
+
+    @Override
+    public Long createApp(AppAddRequest appAddRequest, Long userId) {
+        // 校验参数
+        if (StrUtil.isBlank(appAddRequest.getInitPrompt())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "initPrompt 不能为空");
+        }
+        if (StrUtil.isBlank(appAddRequest.getAppName())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "应用名称不能为空");
+        }
+
+        // 创建应用
+        App app = BeanUtil.copyProperties(appAddRequest, App.class);
+        app.setUserId(userId);
+        app.setPriority(0); // 默认优先级为0，管理员可设置为99表示精选
+
+        boolean result = this.save(app);
+        if (!result) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "创建应用失败");
+        }
+        return app.getId();
+    }
+
+    @Override
+    public Boolean updateMyApp(AppUpdateRequest appUpdateRequest, Long userId) {
+        Long appId = appUpdateRequest.getId();
+        if (appId == null || appId <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "应用ID不合法");
+        }
+
+        // 校验应用是否存在且属于当前用户
+        App app = this.getById(appId);
+        if (app == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        }
+        if (!app.getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权修改该应用");
+        }
+
+        // 更新应用名称
+        App updateApp = new App();
+        updateApp.setId(appId);
+        updateApp.setAppName(appUpdateRequest.getAppName());
+
+        return this.updateById(updateApp);
+    }
+
+    @Override
+    public Boolean deleteMyApp(Long appId, Long userId) {
+        if (appId == null || appId <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "应用ID不合法");
+        }
+
+        // 校验应用是否存在且属于当前用户
+        App app = this.getById(appId);
+        if (app == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        }
+        if (!app.getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权删除该应用");
+        }
+
+        return this.removeById(appId);
+    }
+
+    @Override
+    public AppVo getAppVoById(Long appId) {
+        App app = this.getById(appId);
+        if (app == null) {
+            return null;
+        }
+        return BeanUtil.copyProperties(app, AppVo.class);
+    }
+
+    @Override
+    public Page<AppVo> listMyAppVoByPage(AppQueryRequest appQueryRequest, Long userId) {
+        int pageNum = appQueryRequest.getPageNum();
+        int pageSize = appQueryRequest.getPageSize();
+
+        IPage<AppVo> appVoPage = appMapper.selectMyAppVoPage(new Page<>(pageNum, pageSize), appQueryRequest, userId);
+        return (Page<AppVo>) appVoPage;
+    }
+
+    @Override
+    public Page<AppVo> listFeaturedAppVoByPage(AppQueryRequest appQueryRequest) {
+        int pageNum = appQueryRequest.getPageNum();
+        int pageSize = appQueryRequest.getPageSize();
+
+        IPage<AppVo> appVoPage = appMapper.selectFeaturedAppVoPage(new Page<>(pageNum, pageSize), appQueryRequest);
+        return (Page<AppVo>) appVoPage;
+    }
+
+    @Override
+    public Boolean adminDeleteApp(Long appId) {
+        if (appId == null || appId <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "应用ID不合法");
+        }
+
+        App app = this.getById(appId);
+        if (app == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        }
+
+        return this.removeById(appId);
+    }
+
+    @Override
+    public Boolean adminUpdateApp(AppAdminUpdateRequest appAdminUpdateRequest) {
+        Long appId = appAdminUpdateRequest.getId();
+        if (appId == null || appId <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "应用ID不合法");
+        }
+
+        App app = this.getById(appId);
+        if (app == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        }
+
+        // 更新应用（名称、封面、优先级、是否精选）
+        App updateApp = BeanUtil.copyProperties(appAdminUpdateRequest, App.class);
+        return this.updateById(updateApp);
+    }
+
+    @Override
+    public Page<AppVo> adminListAppVoByPage(AppAdminQueryRequest appAdminQueryRequest) {
+        int pageNum = appAdminQueryRequest.getPageNum();
+        int pageSize = appAdminQueryRequest.getPageSize();
+
+        IPage<AppVo> appVoPage = appMapper.selectAppVoPageForAdmin(new Page<>(pageNum, pageSize), appAdminQueryRequest);
+        return (Page<AppVo>) appVoPage;
+    }
+
+}

@@ -28,7 +28,7 @@ public class JwtUtil {
      */
     public static String createToken(Long userId) {
         return Jwts.builder()
-                .expiration(new Date(System.currentTimeMillis() + 3600000*24*365L)) // 过期时间 1小时
+                .expiration(new Date(System.currentTimeMillis() + 3600000*24L)) // 过期时间 1小时
                 .subject("LOGIN_USER")
                 .claim("userId", userId)
                 .signWith(secretKey)
