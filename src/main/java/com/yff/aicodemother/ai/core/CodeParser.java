@@ -27,6 +27,7 @@ public class CodeParser {
      * @param codeContent 包含HTML代码的内容
      * @return 提取的HTML代码结果对象
      */
+    @Deprecated
     public static HtmlCodeResult parseHtmlCode(String codeContent) {
 
         HtmlCodeResult htmlCodeResult = new HtmlCodeResult();
@@ -49,6 +50,7 @@ public class CodeParser {
      * @param codeContent 包含多文件代码的内容
      * @return 提取的多文件代码结果对象
      */
+    @Deprecated
     public static MultiFileCodeResult parseMultiFileCode(String codeContent) {
         MultiFileCodeResult multiFileCodeResult = new MultiFileCodeResult();
 
@@ -80,6 +82,7 @@ public class CodeParser {
      * @param codeContent 包含HTML代码的内容
      * @return 提取的HTML代码片段，如果未找到则返回null
      */
+    @Deprecated
     private static String extractHtmlCode(String codeContent) {
 
         Matcher matcher = HTML_CODE_PATTERN.matcher(codeContent);
@@ -98,6 +101,7 @@ public class CodeParser {
      * @param pattern     用于匹配代码片段的正则模式
      * @return 提取的代码片段，如果未找到则返回null
      */
+    @Deprecated
     private static String extractCodeByPattern(String codeContent, Pattern pattern) {
         Matcher matcher = pattern.matcher(codeContent);
         if (matcher.find()) {

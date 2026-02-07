@@ -28,6 +28,7 @@ public class CodeFileSaver {
      * @param result HTML代码结果对象
      * @return 保存代码的目录对象
      */
+    @Deprecated
     public static File saveHtmlCodeResult(HtmlCodeResult result) {
 
         String baseDirPath = buildUniqueDir(CodeGenTypeEnum.HTML.getValue());
@@ -42,6 +43,7 @@ public class CodeFileSaver {
      * @param result 多文件代码结果对象
      * @return 保存代码的目录对象
      */
+    @Deprecated
     public static File saveMultiFileCodeResult(MultiFileCodeResult result) {
 
         String baseDirPath = buildUniqueDir(CodeGenTypeEnum.MULTI_FILE.getValue());
@@ -60,6 +62,7 @@ public class CodeFileSaver {
      * @param fileName 文件名
      * @param content  内容
      */
+    @Deprecated
     private static void writeToFile(String dirPath, String fileName, String content) {
 
         String filePath = dirPath + File.separator + fileName;
@@ -73,6 +76,7 @@ public class CodeFileSaver {
      * @param bizType 业务类型
      * @return 唯一目录路径
      */
+    @Deprecated
     private static String buildUniqueDir(String bizType) {
 
 

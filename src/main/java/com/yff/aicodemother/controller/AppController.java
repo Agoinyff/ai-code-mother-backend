@@ -1,5 +1,6 @@
 package com.yff.aicodemother.controller;
 
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yff.aicodemother.annotation.AuthCheck;
 import com.yff.aicodemother.common.BaseResponse;
@@ -20,8 +21,12 @@ import com.yff.aicodemother.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.util.Map;
 
 /**
  * 应用 控制层。
@@ -138,7 +143,7 @@ public class AppController {
      */
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE) //声明为SSE流式返回
     @Operation(summary = "聊天生成代码（SSE 流式返回）")
-    public Flux<String> chatToGenCode(@RequestParam Long appId, @RequestParam String userMessage) {
+    public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId, @RequestParam String userMessage) {
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID不合法");
         ThrowUtils.throwIf(userMessage == null || userMessage.trim().isEmpty(), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
 
@@ -146,7 +151,19 @@ public class AppController {
         Long userId = UserHolder.getUserId();
         User user = userService.getById(userId);//确保用户存在，否则抛出异常
         //调用服务层方法进行流式代码生成
-        return appService.chatToGenCode(appId, userMessage, user);
+        Flux<String> contentFlux = appService.chatToGenCode(appId, userMessage, user);
+        return contentFlux.map(
+                chuck -> {
+                    //将内容包装成json对象
+                    Map<String, String> wrapper = Map.of("d", chuck);
+                    String jsonData = JSONUtil.toJsonStr(wrapper);
+                    return ServerSentEvent.<String>builder().data(jsonData).build();
+                }
+        ).concatWith(Mono.just(  //concatWith 用于在流的末尾添加结束标志    Mono.just创建一个 只包含一个结束标志事件 的 Mono，用于在流结束时发送
+                        //发送结束标志
+                        ServerSentEvent.<String>builder().event("done").data("").build()
+                )
+        );
 
     }
 
