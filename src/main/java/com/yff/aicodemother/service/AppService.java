@@ -8,7 +8,9 @@ import com.yff.aicodemother.model.dto.app.AppAddRequest;
 import com.yff.aicodemother.model.dto.app.AppQueryRequest;
 import com.yff.aicodemother.model.dto.app.AppUpdateRequest;
 import com.yff.aicodemother.model.entity.App;
+import com.yff.aicodemother.model.entity.User;
 import com.yff.aicodemother.model.vo.AppVo;
+import reactor.core.publisher.Flux;
 
 /**
  * 应用 服务层。
@@ -93,5 +95,15 @@ public interface AppService extends IService<App> {
      * @return 分页应用VO列表
      */
     Page<AppVo> adminListAppVoByPage(AppAdminQueryRequest appAdminQueryRequest);
+
+    /**
+     * 流式对话生成代码
+     *
+     * @param appId       应用ID
+     * @param userMessage 用户消息
+     * @param user        用户信息
+     * @return 生成的代码流
+     */
+    Flux<String> chatToGenCode(Long appId, String userMessage, User user);
 
 }

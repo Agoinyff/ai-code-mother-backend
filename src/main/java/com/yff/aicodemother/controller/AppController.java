@@ -13,11 +13,15 @@ import com.yff.aicodemother.model.dto.app.AppAddRequest;
 import com.yff.aicodemother.model.dto.app.AppQueryRequest;
 import com.yff.aicodemother.model.dto.app.AppUpdateRequest;
 import com.yff.aicodemother.model.entity.App;
+import com.yff.aicodemother.model.entity.User;
 import com.yff.aicodemother.model.vo.AppVo;
 import com.yff.aicodemother.service.AppService;
+import com.yff.aicodemother.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
 
 /**
  * 应用 控制层。
@@ -31,6 +35,8 @@ public class AppController {
 
     @Autowired
     private AppService appService;
+    @Autowired
+    private UserService userService;
 
     // ==================== 普通用户接口 ====================
 
@@ -122,6 +128,28 @@ public class AppController {
         Page<AppVo> appVoPage = appService.listFeaturedAppVoByPage(appQueryRequest);
         return ResultUtils.success(appVoPage);
     }
+
+    /**
+     * 聊天生成代码（SSE 流式返回）
+     *
+     * @param appId       应用ID
+     * @param userMessage 用户消息
+     * @return 代码生成结果流
+     */
+    @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE) //声明为SSE流式返回
+    @Operation(summary = "聊天生成代码（SSE 流式返回）")
+    public Flux<String> chatToGenCode(@RequestParam Long appId, @RequestParam String userMessage) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID不合法");
+        ThrowUtils.throwIf(userMessage == null || userMessage.trim().isEmpty(), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
+
+        //获取当前登录用户
+        Long userId = UserHolder.getUserId();
+        User user = userService.getById(userId);//确保用户存在，否则抛出异常
+        //调用服务层方法进行流式代码生成
+        return appService.chatToGenCode(appId, userMessage, user);
+
+    }
+
 
     // ==================== 管理员接口 ====================
 

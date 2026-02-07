@@ -29,11 +29,11 @@ public abstract class CodeFileSaverTemplate<T> {
      * @param result 代码结果对象
      * @return 保存代码的目录对象
      */
-    public final File saveCode(T result) {
+    public final File saveCode(T result, Long appId) {
         //1.验证输入
         validateInput(result);
-        //2.构建唯一目录
-        String baseDirPath = buildUniqueDir();
+        //2.构建基于appId的目录
+        String baseDirPath = buildUniqueDir(appId);
         //3.保存代码文件(具体实现由子类完成)
         saveCodeFiles(result, baseDirPath);
         //4.返回保存代码的目录对象
@@ -47,9 +47,10 @@ public abstract class CodeFileSaverTemplate<T> {
      *
      * @return 目录路径
      */
-    private String buildUniqueDir() {
+    private String buildUniqueDir(Long appId) {
         String codeType = getCodeType().getValue();
-        String uniqueDirName = StrUtil.format("{}_{}", codeType, IdUtil.getSnowflakeNextIdStr());  //这里使用的是hutool的StrUtil和IdUtil生成雪花ID
+        //拼接唯一目录名基于 codeType 和 appId
+        String uniqueDirName = StrUtil.format("{}_{}", codeType, appId);  //这里使用的是hutool的StrUtil和IdUtil生成雪花ID
         String dirPath = FILE_SAVE_ROOT_DIR + File.separator + uniqueDirName; //File.separator 是 Java 中表示操作系统文件路径分隔符的常量。  防止硬编码导致的各种问题
         FileUtil.mkdir(dirPath); //创建目录
         return dirPath;
@@ -71,7 +72,6 @@ public abstract class CodeFileSaverTemplate<T> {
     }
 
 
-
     /**
      * 验证输入参数（可由子类覆盖）
      *
@@ -86,10 +86,11 @@ public abstract class CodeFileSaverTemplate<T> {
 
     /**
      * 保存代码文件（由子类实现具体保存逻辑）
-     * @param result 代码结果对象
+     *
+     * @param result      代码结果对象
      * @param baseDirPath 目录路径
      */
-    protected abstract void saveCodeFiles(T result, String baseDirPath) ;
+    protected abstract void saveCodeFiles(T result, String baseDirPath);
 
 
     /**
