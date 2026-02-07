@@ -1,0 +1,48 @@
+:root {
+  /* 主题色 - 青绿色系 */
+  --primary-color: #00bfb3;
+  --primary-hover: #00a89d;
+  --primary-light: #e6f9f7;
+
+  /* 强调色 - 珊瑚红（用于对话页面） */
+  --accent-color: #ff6b6b;
+  --accent-hover: #ff5252;
+  --accent-light: #fff0f0;
+
+  /* 渐变背景 */
+  --bg-gradient: linear-gradient(180deg, #e0f7f5 0%, #f5fafa 50%, #ffffff 100%);
+
+  /* 背景色 */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafa;
+  --bg-tertiary: #f0f5f5;
+
+  /* 文字颜色 */
+  --text-primary: #1a1a1a;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+
+  /* 边框 */
+  --border-color: #e5e5e5;
+  --border-light: #f0f0f0;
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
+
+  /* 间距 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+
+  /* 圆角 */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+}

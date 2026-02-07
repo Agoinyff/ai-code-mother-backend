@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
+import { useUserStore } from '@/stores/user'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -7,17 +7,70 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: HomeView,
+      component: () => import('@/views/HomePage.vue'),
     },
     {
-      path: '/about',
-      name: 'about',
-      // route level code-splitting
-      // this generates a separate chunk (About.[hash].js) for this route
-      // which is lazy-loaded when the route is visited.
-      component: () => import('../views/AboutView.vue'),
+      path: '/chat/:appId',
+      name: 'chat',
+      component: () => import('@/views/ChatPage.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('@/views/LoginPage.vue'),
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: () => import('@/views/RegisterPage.vue'),
+    },
+    {
+      path: '/my-apps',
+      name: 'my-apps',
+      component: () => import('@/views/MyAppsPage.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/featured',
+      name: 'featured',
+      component: () => import('@/views/FeaturedAppsPage.vue'),
     },
   ],
 })
 
+// 路由守卫
+router.beforeEach(async (to, _from, next) => {
+  const userStore = useUserStore()
+
+  // 只有在有 token 但没有 userInfo 时才初始化用户信息
+  // 登录刚成功时 userInfo 已经设置好了，不需要再调用 initUserInfo
+  if (userStore.token && !userStore.userInfo) {
+    try {
+      await userStore.initUserInfo()
+    } catch (error) {
+      // 初始化失败，继续导航（initUserInfo 内部会清除无效 token）
+      console.error('初始化用户信息失败', error)
+    }
+  }
+
+  // 需要登录的页面
+  if (to.meta.requiresAuth && !userStore.isLoggedIn) {
+    next({
+      path: '/login',
+      query: { redirect: to.fullPath },
+    })
+    return
+  }
+
+  // 已登录用户访问登录/注册页
+  if ((to.name === 'login' || to.name === 'register') && userStore.isLoggedIn) {
+    next('/')
+    return
+  }
+
+  next()
+})
+
 export default router
+
