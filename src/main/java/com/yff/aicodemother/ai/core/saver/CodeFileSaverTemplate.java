@@ -5,6 +5,7 @@ import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import com.yff.aicodemother.ai.model.enums.CodeGenTypeEnum;
+import com.yff.aicodemother.constant.AppConstant;
 import com.yff.aicodemother.exception.BusinessException;
 import com.yff.aicodemother.exception.ErrorCode;
 
@@ -20,7 +21,7 @@ import java.nio.charset.StandardCharsets;
 public abstract class CodeFileSaverTemplate<T> {
 
     // 文件保存跟目录 System.getProperty("user.dir") 获取 当前工作目录（即项目运行时的根目录）
-    private static final String FILE_SAVE_ROOT_DIR = System.getProperty("user.dir") + "/tmp/code_output";
+    private static final String FILE_SAVE_ROOT_DIR = AppConstant.CODE_OUTPUT_ROOT_DIR;
 
 
     /**

@@ -8,11 +8,7 @@ import com.yff.aicodemother.common.ResultUtils;
 import com.yff.aicodemother.common.login.UserHolder;
 import com.yff.aicodemother.exception.ErrorCode;
 import com.yff.aicodemother.exception.ThrowUtils;
-import com.yff.aicodemother.model.dto.app.AppAdminQueryRequest;
-import com.yff.aicodemother.model.dto.app.AppAdminUpdateRequest;
-import com.yff.aicodemother.model.dto.app.AppAddRequest;
-import com.yff.aicodemother.model.dto.app.AppQueryRequest;
-import com.yff.aicodemother.model.dto.app.AppUpdateRequest;
+import com.yff.aicodemother.model.dto.app.*;
 import com.yff.aicodemother.model.entity.App;
 import com.yff.aicodemother.model.entity.User;
 import com.yff.aicodemother.model.vo.AppVo;
@@ -165,6 +161,27 @@ public class AppController {
                 )
         );
 
+    }
+
+
+    /**
+     * 部署应用
+     *
+     * @param appDeployRequest 部署请求体
+     * @return 部署URL
+     */
+    @PostMapping("/deploy")
+    @Operation(summary = "部署应用")
+    public BaseResponse<String> deployApp(@RequestBody AppDeployRequest appDeployRequest) {
+        ThrowUtils.throwIf(appDeployRequest == null, ErrorCode.PARAMS_ERROR);
+        Long appId = appDeployRequest.getAppId();
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID不合法");
+        //获取当前登录用户
+        Long userId = UserHolder.getUserId();
+        User loginUser = userService.getById(userId);
+        //调用服务层方法进行部署
+        String deployUrl = appService.deployApp(appId, loginUser);
+        return ResultUtils.success(deployUrl);
     }
 
 
