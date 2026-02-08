@@ -46,10 +46,29 @@ async function handleLogout() {
                         </div>
                         <template #dropdown>
                             <ElDropdownMenu>
+                                <ElDropdownItem @click="router.push('/profile')">
+                                    <el-icon><User /></el-icon>
+                                    个人中心
+                                </ElDropdownItem>
                                 <ElDropdownItem @click="router.push('/my-apps')">
+                                    <el-icon><Document /></el-icon>
                                     我的作品
                                 </ElDropdownItem>
+                                <template v-if="userInfo?.userRole === 'admin'">
+                                    <ElDropdownItem divided>
+                                        <div style="color: #999; font-size: 12px; padding: 4px 0;">管理员功能</div>
+                                    </ElDropdownItem>
+                                    <ElDropdownItem @click="router.push('/admin/users')">
+                                        <el-icon><UserFilled /></el-icon>
+                                        用户管理
+                                    </ElDropdownItem>
+                                    <ElDropdownItem @click="router.push('/admin/apps')">
+                                        <el-icon><Grid /></el-icon>
+                                        应用管理
+                                    </ElDropdownItem>
+                                </template>
                                 <ElDropdownItem divided @click="handleLogout">
+                                    <el-icon><SwitchButton /></el-icon>
                                     退出登录
                                 </ElDropdownItem>
                             </ElDropdownMenu>

@@ -115,6 +115,43 @@ function handleAppClick(app: AppVo) {
                 </h1>
                 <p class="hero-subtitle">与 AI 对话轻松创建应用和网站</p>
 
+                <!-- Code Type Selector -->
+                <div class="code-type-selector">
+                    <div class="selector-label">
+                        <el-icon><Document /></el-icon>
+                        <span>选择生成类型</span>
+                    </div>
+                    <el-radio-group v-model="codeGenType" class="type-options">
+                        <el-radio-button value="html">
+                            <div class="radio-content">
+                                <el-icon><DocumentCopy /></el-icon>
+                                <div>
+                                    <div class="radio-title">单页面 HTML</div>
+                                    <div class="radio-desc">快速生成单个HTML页面</div>
+                                </div>
+                            </div>
+                        </el-radio-button>
+                        <el-radio-button value="react">
+                            <div class="radio-content">
+                                <el-icon><Files /></el-icon>
+                                <div>
+                                    <div class="radio-title">React 多页面</div>
+                                    <div class="radio-desc">生成完整React项目</div>
+                                </div>
+                            </div>
+                        </el-radio-button>
+                        <el-radio-button value="vue">
+                            <div class="radio-content">
+                                <el-icon><Files /></el-icon>
+                                <div>
+                                    <div class="radio-title">Vue 多页面</div>
+                                    <div class="radio-desc">生成完整Vue项目</div>
+                                </div>
+                            </div>
+                        </el-radio-button>
+                    </el-radio-group>
+                </div>
+
                 <!-- Prompt Input Card -->
                 <div class="prompt-card">
                     <ElInput
@@ -246,8 +283,77 @@ function handleAppClick(app: AppVo) {
 .hero-subtitle {
     font-size: 16px;
     color: var(--text-secondary);
-    margin-bottom: 40px;
+    margin-bottom: 32px;
 }
+
+/* Code Type Selector */
+.code-type-selector {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.selector-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.type-options {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+}
+
+.type-options :deep(.el-radio-button) {
+    flex: 1;
+}
+
+.type-options :deep(.el-radio-button__inner) {
+    width: 100%;
+    padding: 16px 12px;
+    border-radius: 12px;
+    border: 2px solid var(--border-color);
+    background: #fff;
+    transition: all 0.3s;
+}
+
+.type-options :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: #667eea;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.radio-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+}
+
+.radio-content .el-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.radio-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.radio-desc {
+    font-size: 11px;
+    opacity: 0.8;
+}
+
 
 .prompt-card {
     background: #fff;

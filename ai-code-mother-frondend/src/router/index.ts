@@ -36,6 +36,24 @@ const router = createRouter({
       name: 'featured',
       component: () => import('@/views/FeaturedAppsPage.vue'),
     },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: () => import('@/views/UserProfilePage.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/users',
+      name: 'admin-users',
+      component: () => import('@/views/AdminUserManagePage.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/admin/apps',
+      name: 'admin-apps',
+      component: () => import('@/views/AdminAppManagePage.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
   ],
 })
 
@@ -60,6 +78,12 @@ router.beforeEach(async (to, _from, next) => {
       path: '/login',
       query: { redirect: to.fullPath },
     })
+    return
+  }
+
+  // 需要管理员权限的页面
+  if (to.meta.requiresAdmin && userStore.userInfo?.userRole !== 'admin') {
+    next('/')
     return
   }
 
