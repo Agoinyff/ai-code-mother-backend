@@ -21,20 +21,25 @@
         updateTime,isDelete
     </sql>
 
-    <!-- 分页查询指定应用的对话历史（用户查询） -->
-    <select id="selectChatHistoryVoPage" resultType="com.yff.aicodemother.model.vo.ChatHistoryVo">
+    <!-- 游标分页查询指定应用的对话历史（用户查询） -->
+    <select id="selectChatHistoryVoByCursor" resultType="com.yff.aicodemother.model.vo.ChatHistoryVo">
         SELECT
             id, message, messageType, appId, userId, createTime, updateTime
         FROM chat_history
         <where>
             isDelete = 0
-            <if test="query.appId != null">
-                AND appId = #{query.appId}
+            AND appId = #{query.appId}
+            <!-- 游标分页条件：查询早于游标时间的记录 -->
+            <if test="query.lastTime != null and query.lastId != null">
+                AND (
+                    createTime &lt; #{query.lastTime}
+                    OR (createTime = #{query.lastTime} AND id &lt; #{query.lastId})
+                )
             </if>
-            <!-- 权限校验：用户只能查询自己创建的应用的对话历史 -->
-            <!-- 这里只返回指定应用的对话历史，权限在 Service 层校验 -->
         </where>
-        ORDER BY createTime DESC
+        <!-- 按创建时间降序，时间相同时按ID降序 -->
+        ORDER BY createTime DESC, id DESC
+        LIMIT #{limit}
     </select>
 
     <!-- 管理员分页查询所有对话历史 -->

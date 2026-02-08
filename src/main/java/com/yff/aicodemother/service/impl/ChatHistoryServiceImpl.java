@@ -11,13 +11,17 @@ import com.yff.aicodemother.mapper.AppMapper;
 import com.yff.aicodemother.mapper.ChatHistoryMapper;
 import com.yff.aicodemother.model.dto.chathistory.ChatHistoryAdminQueryRequest;
 import com.yff.aicodemother.model.dto.chathistory.ChatHistoryAddRequest;
-import com.yff.aicodemother.model.dto.chathistory.ChatHistoryQueryRequest;
+import com.yff.aicodemother.model.dto.chathistory.ChatHistoryCursorQueryRequest;
 import com.yff.aicodemother.model.entity.App;
 import com.yff.aicodemother.model.entity.ChatHistory;
 import com.yff.aicodemother.model.vo.ChatHistoryVo;
+import com.yff.aicodemother.model.vo.CursorInfo;
+import com.yff.aicodemother.model.vo.CursorPageVo;
 import com.yff.aicodemother.service.ChatHistoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 /**
  * 对话历史 服务层实现。
@@ -64,12 +68,12 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
     }
 
     @Override
-    public Page<ChatHistoryVo> listChatHistoryVoByPage(ChatHistoryQueryRequest request, Long userId) {
+    public CursorPageVo<ChatHistoryVo> listChatHistoryVoByPage(ChatHistoryCursorQueryRequest cursorRequest, Long userId) {
         // 参数校验
-        if (request == null) {
+        if (cursorRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数不能为空");
         }
-        if (request.getAppId() == null || request.getAppId() <= 0) {
+        if (cursorRequest.getAppId() == null || cursorRequest.getAppId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "应用ID不合法");
         }
         if (userId == null || userId <= 0) {
@@ -77,7 +81,7 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
         }
 
         // 权限校验：用户只能查询自己创建的应用的对话历史
-        App app = appMapper.selectById(request.getAppId());
+        App app = appMapper.selectById(cursorRequest.getAppId());
         if (app == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "应用不存在");
         }
@@ -85,12 +89,45 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权查看该应用的对话历史");
         }
 
-        // 分页查询
-        int pageNum = request.getPageNum();
-        int pageSize = request.getPageSize();
-        IPage<ChatHistoryVo> chatHistoryVoPage = chatHistoryMapper.selectChatHistoryVoPage(
-                new Page<>(pageNum, pageSize), request, userId);
-        return (Page<ChatHistoryVo>) chatHistoryVoPage;
+        // 设置默认分页大小
+        Integer pageSize = cursorRequest.getPageSize();
+        if (pageSize == null || pageSize <= 0) {
+            pageSize = 10;
+        }
+        // 限制最大查询条数
+        if (pageSize > 100) {
+            pageSize = 100;
+        }
+
+        // 查询 N+1 条数据，用于判断是否还有下一页
+        int queryLimit = pageSize + 1;
+        List<ChatHistoryVo> records = chatHistoryMapper.selectChatHistoryVoByCursor(
+                cursorRequest, userId, queryLimit);
+
+        // 判断是否还有下一页
+        boolean hasMore = records.size() > pageSize;
+        
+        // 如果查询结果超过 pageSize，移除最后一条（第 N+1 条）
+        if (hasMore) {
+            records = records.subList(0, pageSize);
+        }
+
+        // 构建下一页的游标信息
+        CursorInfo nextCursor = null;
+        if (hasMore && !records.isEmpty()) {
+            ChatHistoryVo lastRecord = records.get(records.size() - 1);
+            nextCursor = CursorInfo.builder()
+                    .lastTime(lastRecord.getCreateTime())
+                    .lastId(lastRecord.getId())
+                    .build();
+        }
+
+        // 构建返回结果
+        return CursorPageVo.<ChatHistoryVo>builder()
+                .records(records)
+                .hasMore(hasMore)
+                .nextCursor(nextCursor)
+                .build();
     }
 
     @Override

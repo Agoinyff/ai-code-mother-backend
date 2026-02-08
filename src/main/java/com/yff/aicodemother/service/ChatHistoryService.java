@@ -4,9 +4,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yff.aicodemother.model.dto.chathistory.ChatHistoryAdminQueryRequest;
 import com.yff.aicodemother.model.dto.chathistory.ChatHistoryAddRequest;
-import com.yff.aicodemother.model.dto.chathistory.ChatHistoryQueryRequest;
+import com.yff.aicodemother.model.dto.chathistory.ChatHistoryCursorQueryRequest;
 import com.yff.aicodemother.model.entity.ChatHistory;
 import com.yff.aicodemother.model.vo.ChatHistoryVo;
+import com.yff.aicodemother.model.vo.CursorPageVo;
 
 /**
  * 对话历史 服务层。
@@ -25,13 +26,13 @@ public interface ChatHistoryService extends IService<ChatHistory> {
     Long saveChatMessage(ChatHistoryAddRequest request);
 
     /**
-     * 用户分页查询指定应用的对话历史
+     * 用户分页查询指定应用的对话历史（游标分页）
      *
      * @param request 查询条件
      * @param userId  当前用户 ID（用于权限校验）
-     * @return 分页 VO 结果
+     * @return 游标分页 VO 结果
      */
-    Page<ChatHistoryVo> listChatHistoryVoByPage(ChatHistoryQueryRequest request, Long userId);
+    CursorPageVo<ChatHistoryVo> listChatHistoryVoByPage(ChatHistoryCursorQueryRequest request, Long userId);
 
     /**
      * 管理员分页查询所有对话历史
