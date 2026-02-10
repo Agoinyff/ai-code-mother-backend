@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { AppVo } from '@/types/app'
-import type { ChatMessage } from '@/types/common'
+import type { ChatMessage, CursorInfo, ChatHistoryCursorQueryRequest } from '@/types/common'
 import * as appApi from '@/api/app'
 import { chatToGenCode, getPreviewUrl } from '@/api/sse'
+import { listChatHistoryByPage } from '@/api/chatHistory'
 
 export const useAppStore = defineStore('app', () => {
     // 当前应用
@@ -24,17 +25,32 @@ export const useAppStore = defineStore('app', () => {
     // SSE 取消函数
     let cancelSSE: (() => void) | null = null
 
+    // 游标信息（用于加载更多）
+    const cursorInfo = ref<CursorInfo | null>(null)
+
+    // 是否还有更多历史消息
+    const hasMoreHistory = ref(false)
+
+    // 是否正在加载历史消息
+    const isLoadingHistory = ref(false)
+
     // 加载应用信息
     async function loadApp(appId: string) {
-        // 如果切换到不同的应用，重置消息列表
+        // 如果切换到不同的应用，重置所有状态
         if (currentApp.value?.id !== appId) {
             chatMessages.value = []
+            cursorInfo.value = null
+            hasMoreHistory.value = false
             cancelGeneration() // 取消正在进行的生成
         }
 
         const res = await appApi.getAppVoById(appId)
         currentApp.value = res.data
         updatePreviewUrl()
+
+        // 加载历史消息
+        await loadChatHistory(false)
+
         return res.data
     }
 
@@ -147,6 +163,55 @@ export const useAppStore = defineStore('app', () => {
         }
     }
 
+    // 加载历史消息
+    async function loadChatHistory(isLoadMore: boolean = false): Promise<void> {
+        if (!currentApp.value || isLoadingHistory.value) return
+
+        isLoadingHistory.value = true
+
+        try {
+            const params: ChatHistoryCursorQueryRequest = {
+                appId: currentApp.value.id,
+                pageSize: 10
+            }
+
+            // 如果是加载更多，携带游标信息
+            if (isLoadMore && cursorInfo.value) {
+                params.lastTime = cursorInfo.value.lastTime
+                params.lastId = cursorInfo.value.lastId
+            }
+
+            const res = await listChatHistoryByPage(params)
+            const { records, hasMore, nextCursor } = res.data
+
+            // 后端返回的是降序（最新在前），需要反转为升序（最旧在前，最新在后）
+            // 这样最新消息显示在底部，符合聊天习惯
+            const historyMessages: ChatMessage[] = records.reverse().map(record => ({
+                id: `history-${record.id}`,
+                role: record.messageType === 'user' ? 'user' : 'assistant',
+                content: record.message,
+                timestamp: new Date(record.createTime).getTime()
+            }))
+
+            // 如果是加载更多，将更旧的消息插入到列表开头
+            // 如果是首次加载，直接设置
+            if (isLoadMore) {
+                chatMessages.value = [...historyMessages, ...chatMessages.value]
+            } else {
+                chatMessages.value = historyMessages
+            }
+
+            // 更新游标和hasMore状态
+            hasMoreHistory.value = hasMore
+            cursorInfo.value = nextCursor || null
+        } catch (error) {
+            console.error('[AppStore] 加载历史消息失败:', error)
+            throw error
+        } finally {
+            isLoadingHistory.value = false
+        }
+    }
+
     return {
         // 状态
         currentApp,
@@ -154,6 +219,9 @@ export const useAppStore = defineStore('app', () => {
         isGenerating,
         currentResponse,
         previewUrl,
+        cursorInfo,
+        hasMoreHistory,
+        isLoadingHistory,
         // 别名（为了兼容性）
         messages: chatMessages,
         isStreaming: isGenerating,
@@ -163,5 +231,6 @@ export const useAppStore = defineStore('app', () => {
         cancelGeneration,
         reset,
         refreshPreview,
+        loadChatHistory,
     }
 })

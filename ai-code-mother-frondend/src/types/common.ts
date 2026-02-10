@@ -29,3 +29,35 @@ export interface ChatMessage {
     content: string
     timestamp: number
 }
+
+// 游标信息
+export interface CursorInfo {
+    lastTime: string
+    lastId: number
+}
+
+// 游标分页响应
+export interface CursorPageVo<T> {
+    records: T[]
+    hasMore: boolean
+    nextCursor?: CursorInfo
+}
+
+// 聊天历史查询请求
+export interface ChatHistoryCursorQueryRequest {
+    appId: string
+    pageSize?: number
+    lastTime?: string
+    lastId?: number
+}
+
+// 聊天历史VO
+export interface ChatHistoryVo {
+    id: number
+    message: string
+    messageType: 'user' | 'ai' | 'error'
+    appId: number
+    userId: number
+    createTime: string
+    updateTime: string
+}

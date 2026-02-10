@@ -177,14 +177,14 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
             // 先根据appId查询对话历史
             chatHistoryLambdaQueryWrapper.eq(ChatHistory::getAppId, appId)
                     .orderByAsc(ChatHistory::getCreateTime)
-                    .last("limit 1 " + maxCount); //起始点为1而不是0，跳过第一条，避免重复加载最新消息
+                    .last("limit 1," + maxCount); //起始点为1而不是0，跳过第一条，避免重复加载最新消息
             List<ChatHistory> historyList = this.list(chatHistoryLambdaQueryWrapper);
             if (CollUtil.isEmpty(historyList)) {
                 return 0;
             }
 
             //反转列表，确保按照时间正序加载到记忆中   老的在前，新的在后
-            historyList = historyList.reversed();
+//            historyList = historyList.reversed();
             //按照时间顺序添加到记忆中
             int loadedCount = 0;
             //先清理历史缓存，防止重复加载

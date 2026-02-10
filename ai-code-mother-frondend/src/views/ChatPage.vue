@@ -14,13 +14,15 @@ const appId = computed(() => String(route.params.appId))
 const chatMessages = computed(() => appStore.chatMessages)
 const currentApp = computed(() => appStore.currentApp)
 const isGenerating = computed(() => appStore.isGenerating)
-
-// 是否显示预览面板（生成完成后显示）
-const showPreview = ref(false)
+const hasMoreHistory = computed(() => appStore.hasMoreHistory)
+const isLoadingHistory = computed(() => appStore.isLoadingHistory)
 
 // 预览刷新 key（用于强制刷新 iframe）
 const previewKey = ref(0)
 const iframeRef = ref<HTMLIFrameElement>()
+
+// 是否显示预览面板（计算属性，有预览URL就显示）
+const showPreview = computed(() => !!previewUrl.value)
 
 // 滚动到底部
 const chatListRef = ref<HTMLElement>()
@@ -33,12 +35,12 @@ function scrollToBottom() {
 }
 watch(chatMessages, scrollToBottom, { deep: true })
 
-// 监听生成状态变化，生成完成后显示预览
+// 监听生成状态变化，生成完成后刷新预览
 watch(isGenerating, (newVal, oldVal) => {
     if (oldVal === true && newVal === false) {
-        // 生成刚完成，延迟显示预览
+        // 生成刚完成，刷新预览
         setTimeout(() => {
-            showPreview.value = true
+            refreshPreview()
         }, 500)
     }
 })
@@ -125,10 +127,8 @@ function openPreviewInNewTab() {
 // 加载应用
 onMounted(async () => {
     try {
-        const app = await appStore.loadApp(appId.value)
-        if (app?.initPrompt && chatMessages.value.length === 0) {
-            await appStore.sendMessage(app.initPrompt)
-        }
+        await appStore.loadApp(appId.value)
+        // 历史消息已在 loadApp 中自动加载
         scrollToBottom()
     } catch (error) {
         console.error('[ChatPage] 加载应用失败:', error)
@@ -143,6 +143,25 @@ onBeforeUnmount(() => {
 // 返回首页
 function goHome() {
     router.push('/')
+}
+
+// 加载更多历史消息
+async function loadMoreHistory() {
+    try {
+        // 记录当前滚动高度
+        const currentScrollHeight = chatListRef.value?.scrollHeight || 0
+        
+        await appStore.loadChatHistory(true)
+        
+        // 保持滚动位置在新加载内容的底部
+        await nextTick()
+        const newScrollHeight = chatListRef.value?.scrollHeight || 0
+        if (chatListRef.value) {
+            chatListRef.value.scrollTop = newScrollHeight - currentScrollHeight
+        }
+    } catch (error) {
+        ElMessage.error('加载历史消息失败')
+    }
 }
 </script>
 
@@ -178,9 +197,22 @@ function goHome() {
                 <div class="chat-panel">
                     <!-- 对话列表 -->
                     <div ref="chatListRef" class="chat-list">
+                        <!-- 加载更多按钮 -->
+                        <div v-if="hasMoreHistory" class="load-more-container">
+                            <el-button 
+                                text 
+                                :loading="isLoadingHistory"
+                                @click="loadMoreHistory"
+                                class="load-more-btn"
+                            >
+                                <el-icon v-if="!isLoadingHistory"><ArrowUp /></el-icon>
+                                {{ isLoadingHistory ? '加载中...' : '加载更多历史消息' }}
+                            </el-button>
+                        </div>
+                        
                         <div
                             v-for="(msg, index) in chatMessages"
-                            :key="index"
+                            :key="msg.id"
                             class="message-item"
                             :class="msg.role"
                         >
@@ -689,5 +721,23 @@ function goHome() {
         height: 50vh;
         flex: none;
     }
+}
+
+/* 加载更多容器 */
+.load-more-container {
+    text-align: center;
+    padding: 12px 0;
+    margin-bottom: 16px;
+}
+
+.load-more-btn {
+    color: #667eea;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.load-more-btn:hover {
+    color: #5a6fd6;
+    transform: translateY(-2px);
 }
 </style>
