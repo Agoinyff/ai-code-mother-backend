@@ -15,6 +15,7 @@ public enum MessageTypeEnum {
     USER("用户消息", "user"),
     AI("AI消息", "ai"),
     ERROR("错误消息", "error");
+    //TODO 把ERROR合并到AI消息里
 
     private final String text;
     private final String value;

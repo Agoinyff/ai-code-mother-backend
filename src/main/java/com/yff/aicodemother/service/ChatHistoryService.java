@@ -8,6 +8,7 @@ import com.yff.aicodemother.model.dto.chathistory.ChatHistoryCursorQueryRequest;
 import com.yff.aicodemother.model.entity.ChatHistory;
 import com.yff.aicodemother.model.vo.ChatHistoryVo;
 import com.yff.aicodemother.model.vo.CursorPageVo;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 
 /**
  * 对话历史 服务层。
@@ -49,5 +50,17 @@ public interface ChatHistoryService extends IService<ChatHistory> {
      * @return 是否删除成功
      */
     Boolean deleteByAppId(Long appId);
+
+
+    /**
+     * 加载指定应用的对话历史到聊天记忆中（按时间倒序加载）
+     *
+     * @param appId      应用ID
+     * @param chatMemory 聊天记忆对象
+     * @param maxCount   最大加载数量
+     * @return 实际加载数量
+     */
+    int loadChatHistoryToMemory(Long appId, MessageWindowChatMemory chatMemory, int maxCount);
+
 
 }

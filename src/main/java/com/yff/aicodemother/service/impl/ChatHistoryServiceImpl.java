@@ -1,8 +1,11 @@
 package com.yff.aicodemother.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yff.aicodemother.exception.BusinessException;
@@ -14,10 +17,15 @@ import com.yff.aicodemother.model.dto.chathistory.ChatHistoryAddRequest;
 import com.yff.aicodemother.model.dto.chathistory.ChatHistoryCursorQueryRequest;
 import com.yff.aicodemother.model.entity.App;
 import com.yff.aicodemother.model.entity.ChatHistory;
+import com.yff.aicodemother.model.enums.MessageTypeEnum;
 import com.yff.aicodemother.model.vo.ChatHistoryVo;
 import com.yff.aicodemother.model.vo.CursorInfo;
 import com.yff.aicodemother.model.vo.CursorPageVo;
 import com.yff.aicodemother.service.ChatHistoryService;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +38,7 @@ import java.util.List;
  * @since 2026-02-08
  */
 @Service
+@Slf4j
 public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatHistory>
         implements ChatHistoryService {
 
@@ -106,7 +115,7 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
 
         // 判断是否还有下一页
         boolean hasMore = records.size() > pageSize;
-        
+
         // 如果查询结果超过 pageSize，移除最后一条（第 N+1 条）
         if (hasMore) {
             records = records.subList(0, pageSize);
@@ -158,6 +167,45 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
                 .eq(ChatHistory::getIsDelete, 0)
                 .set(ChatHistory::getIsDelete, 1);
         return this.update(updateWrapper);
+    }
+
+    @Override
+    public int loadChatHistoryToMemory(Long appId, MessageWindowChatMemory chatMemory, int maxCount) {
+
+        try {
+            LambdaQueryWrapper<ChatHistory> chatHistoryLambdaQueryWrapper = new LambdaQueryWrapper<>();
+            // 先根据appId查询对话历史
+            chatHistoryLambdaQueryWrapper.eq(ChatHistory::getAppId, appId)
+                    .orderByAsc(ChatHistory::getCreateTime)
+                    .last("limit 1 " + maxCount); //起始点为1而不是0，跳过第一条，避免重复加载最新消息
+            List<ChatHistory> historyList = this.list(chatHistoryLambdaQueryWrapper);
+            if (CollUtil.isEmpty(historyList)) {
+                return 0;
+            }
+
+            //反转列表，确保按照时间正序加载到记忆中   老的在前，新的在后
+            historyList = historyList.reversed();
+            //按照时间顺序添加到记忆中
+            int loadedCount = 0;
+            //先清理历史缓存，防止重复加载
+            chatMemory.clear();
+            for (ChatHistory history : historyList) {
+                if (MessageTypeEnum.USER.getValue().equals(history.getMessageType())) {
+                    chatMemory.add(UserMessage.from(history.getMessage()));
+                    loadedCount++;
+                } else if (MessageTypeEnum.AI.getValue().equals(history.getMessageType())) {
+                    chatMemory.add(AiMessage.from(history.getMessage()));
+                    loadedCount++;
+                }
+            }
+
+            log.info("加载对话历史到记忆中，appId={}，加载数量={}", appId, loadedCount);
+            return loadedCount;
+        } catch (Exception e) {
+            log.error("加载对话历史到记忆中失败，appId={}，错误信息={}", appId, e.getMessage());
+            //加载失败不影响系统运行，只是没有历史上下文
+            return 0;
+        }
     }
 
 }
