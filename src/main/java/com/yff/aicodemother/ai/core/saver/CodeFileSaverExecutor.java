@@ -32,6 +32,8 @@ public class CodeFileSaverExecutor {
      */
     public static File executeSaver(Object codeResult, CodeGenTypeEnum codeGenTypeEnum, Long appId) {
 
+        //TODO 判断用户是对话还是生成代码
+
         return switch (codeGenTypeEnum) {
             case HTML -> htmlCodeFileSaver.saveCode((HtmlCodeResult) codeResult, appId);
             case MULTI_FILE -> multiFileCodeFileSaver.saveCode((MultiFileCodeResult) codeResult, appId);

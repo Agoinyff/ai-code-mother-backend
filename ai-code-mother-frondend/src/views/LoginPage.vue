@@ -1,34 +1,47 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRouter, useRoute, RouterLink } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElForm, ElFormItem, ElInput, ElButton } from 'element-plus'
+import type { FormInstance, FormRules } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 
-const form = ref({
+const formRef = ref<FormInstance>()
+const form = reactive({
     userAccount: '',
     userPassword: '',
 })
 const isLoading = ref(false)
 
+// 表单校验规则
+const rules = reactive<FormRules>({
+    userAccount: [
+        { required: true, message: '请输入账号', trigger: 'blur' },
+        { min: 4, message: '账号长度至少4位', trigger: 'blur' }
+    ],
+    userPassword: [
+        { required: true, message: '请输入密码', trigger: 'blur' },
+        { min: 6, message: '密码长度至少6位', trigger: 'blur' }
+    ]
+})
+
 async function handleLogin() {
-    if (!form.value.userAccount || !form.value.userPassword) {
-        ElMessage.warning('请输入账号和密码')
-        return
-    }
+    if (!formRef.value) return
+    const valid = await formRef.value.validate().catch(() => false)
+    if (!valid) return
 
     isLoading.value = true
     try {
-        await userStore.login(form.value.userAccount, form.value.userPassword)
+        await userStore.login(form.userAccount, form.userPassword)
         ElMessage.success('登录成功')
 
         const redirect = route.query.redirect as string
         router.push(redirect || '/')
     } catch (error: any) {
-        ElMessage.error(error.message || '登录失败')
+        // 错误已由 request 拦截器处理
     } finally {
         isLoading.value = false
     }
@@ -50,8 +63,8 @@ async function handleLogin() {
                 </div>
 
                 <!-- Form -->
-                <ElForm class="login-form" @submit.prevent="handleLogin">
-                    <ElFormItem>
+                <ElForm ref="formRef" :model="form" :rules="rules" class="login-form" @submit.prevent="handleLogin">
+                    <ElFormItem prop="userAccount">
                         <ElInput
                             v-model="form.userAccount"
                             size="large"
@@ -59,7 +72,7 @@ async function handleLogin() {
                             prefix-icon="User"
                         />
                     </ElFormItem>
-                    <ElFormItem>
+                    <ElFormItem prop="userPassword">
                         <ElInput
                             v-model="form.userPassword"
                             size="large"

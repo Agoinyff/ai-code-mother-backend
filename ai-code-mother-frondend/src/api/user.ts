@@ -5,7 +5,9 @@ import type {
     LoginVo,
     UserLoginRequest,
     UserRegisterRequest,
-    UserQueryRequest
+    UserQueryRequest,
+    UserAddRequest,
+    UserUpdateRequest
 } from '@/types/user'
 import type { PageResult } from '@/types/common'
 
@@ -37,7 +39,7 @@ export function getUserVoById(id: number): Promise<BaseResponse<UserVo>> {
 // ============ 管理员接口 ============
 
 // 创建用户
-export function addUser(data: { userAccount: string; userName?: string; userRole?: string }): Promise<BaseResponse<number>> {
+export function addUser(data: UserAddRequest): Promise<BaseResponse<number>> {
     return request.post('/user/add', data).then(res => res.data)
 }
 
@@ -47,7 +49,7 @@ export function deleteUser(id: number): Promise<BaseResponse<boolean>> {
 }
 
 // 更新用户
-export function updateUser(data: { id: number; userName?: string; userRole?: string }): Promise<BaseResponse<boolean>> {
+export function updateUser(data: UserUpdateRequest): Promise<BaseResponse<boolean>> {
     return request.post('/user/update', data).then(res => res.data)
 }
 

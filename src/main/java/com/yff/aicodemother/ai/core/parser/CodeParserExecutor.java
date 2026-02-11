@@ -29,6 +29,8 @@ public class CodeParserExecutor {
      */
     public static Object executeParse(String codeContent, CodeGenTypeEnum codeGenType) {
 
+        //TODO 判断用户是对话还是生成代码
+
         return switch (codeGenType) {
             case HTML -> htmlCodeParser.parseCode(codeContent);
             case MULTI_FILE -> multiFileCodeParser.parseCode(codeContent);

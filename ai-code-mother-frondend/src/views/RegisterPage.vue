@@ -1,51 +1,62 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElForm, ElFormItem, ElInput, ElButton } from 'element-plus'
+import type { FormInstance, FormRules } from 'element-plus'
 
 const router = useRouter()
 const userStore = useUserStore()
 
-const form = ref({
+const formRef = ref<FormInstance>()
+const form = reactive({
     userAccount: '',
     userPassword: '',
     checkPassword: '',
 })
 const isLoading = ref(false)
 
+// 自定义校验：确认密码
+const validateCheckPassword = (_rule: any, value: string, callback: any) => {
+    if (value !== form.userPassword) {
+        callback(new Error('两次密码不一致'))
+    } else {
+        callback()
+    }
+}
+
+// 表单校验规则
+const rules = reactive<FormRules>({
+    userAccount: [
+        { required: true, message: '请输入账号', trigger: 'blur' },
+        { min: 4, message: '账号长度至少4位', trigger: 'blur' }
+    ],
+    userPassword: [
+        { required: true, message: '请输入密码', trigger: 'blur' },
+        { min: 6, message: '密码长度至少6位', trigger: 'blur' }
+    ],
+    checkPassword: [
+        { required: true, message: '请确认密码', trigger: 'blur' },
+        { validator: validateCheckPassword, trigger: 'blur' }
+    ]
+})
+
 async function handleRegister() {
-    if (!form.value.userAccount || !form.value.userPassword || !form.value.checkPassword) {
-        ElMessage.warning('请填写完整信息')
-        return
-    }
-
-    if (form.value.userAccount.length < 4) {
-        ElMessage.warning('账号长度至少4位')
-        return
-    }
-
-    if (form.value.userPassword.length < 6) {
-        ElMessage.warning('密码长度至少6位')
-        return
-    }
-
-    if (form.value.userPassword !== form.value.checkPassword) {
-        ElMessage.warning('两次密码不一致')
-        return
-    }
+    if (!formRef.value) return
+    const valid = await formRef.value.validate().catch(() => false)
+    if (!valid) return
 
     isLoading.value = true
     try {
         await userStore.register(
-            form.value.userAccount,
-            form.value.userPassword,
-            form.value.checkPassword
+            form.userAccount,
+            form.userPassword,
+            form.checkPassword
         )
         ElMessage.success('注册成功，请登录')
         router.push('/login')
     } catch (error: any) {
-        ElMessage.error(error.message || '注册失败')
+        // 错误已由 request 拦截器处理
     } finally {
         isLoading.value = false
     }
@@ -67,8 +78,8 @@ async function handleRegister() {
                 </div>
 
                 <!-- Form -->
-                <ElForm class="register-form" @submit.prevent="handleRegister">
-                    <ElFormItem>
+                <ElForm ref="formRef" :model="form" :rules="rules" class="register-form" @submit.prevent="handleRegister">
+                    <ElFormItem prop="userAccount">
                         <ElInput
                             v-model="form.userAccount"
                             size="large"
@@ -76,7 +87,7 @@ async function handleRegister() {
                             prefix-icon="User"
                         />
                     </ElFormItem>
-                    <ElFormItem>
+                    <ElFormItem prop="userPassword">
                         <ElInput
                             v-model="form.userPassword"
                             size="large"
@@ -86,7 +97,7 @@ async function handleRegister() {
                             show-password
                         />
                     </ElFormItem>
-                    <ElFormItem>
+                    <ElFormItem prop="checkPassword">
                         <ElInput
                             v-model="form.checkPassword"
                             size="large"

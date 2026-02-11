@@ -16,6 +16,11 @@ public class UserVo implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /**
+     * 用户id
+     */
+    private Long id;
+
+    /**
      * 账号
      */
     private String userAccount;

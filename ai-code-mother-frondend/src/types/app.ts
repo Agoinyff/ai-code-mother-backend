@@ -55,7 +55,12 @@ export interface AppAdminQueryRequest {
     pageSize?: number
     sortField?: string
     sortOrder?: string
+    id?: string
     appName?: string
-    userId?: string
+    cover?: string
+    initPrompt?: string
     codeGenType?: string
+    deployKey?: string
+    priority?: number
+    userId?: string
 }

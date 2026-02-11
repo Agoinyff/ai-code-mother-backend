@@ -1,5 +1,6 @@
 // 用户视图对象
 export interface UserVo {
+    id: number
     userAccount: string
     userName: string
     userAvatar: string
@@ -39,8 +40,11 @@ export interface UserQueryRequest {
     pageSize?: number
     sortField?: string
     sortOrder?: string
+    id?: number
     userAccount?: string
     userName?: string
+    userProfile?: string
+    userRole?: string
 }
 
 // 用户添加请求

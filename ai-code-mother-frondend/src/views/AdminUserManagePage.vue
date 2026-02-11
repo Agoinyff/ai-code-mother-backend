@@ -96,9 +96,8 @@ function handleAdd() {
 function handleEdit(row: UserVo) {
     dialogType.value = 'edit'
     dialogTitle.value = '编辑用户'
-    // 需要添加 id 字段，但 UserVo 没有 id，这里假设 userAccount 可以作为标识
-    // 实际应该从后端获取包含 id 的完整用户信息
     formData.value = {
+        id: row.id,
         userAccount: row.userAccount,
         userName: row.userName,
         userAvatar: row.userAvatar,
@@ -117,20 +116,22 @@ async function handleSave() {
 
     try {
         if (dialogType.value === 'add') {
-            const res = await addUser(formData.value)
-            if (res.code === 0) {
-                ElMessage.success('新增用户成功')
-                dialogVisible.value = false
-                loadUsers()
-            } else {
-                ElMessage.error(res.message || '新增用户失败')
-            }
+            await addUser(formData.value)
+            ElMessage.success('新增用户成功')
         } else {
-            // 编辑需要 ID，这里需要从其他地方获取
-            ElMessage.info('编辑功能需要用户ID，请完善API')
+            await updateUser({
+                id: formData.value.id!,
+                userName: formData.value.userName,
+                userAvatar: formData.value.userAvatar,
+                userProfile: formData.value.userProfile,
+                userRole: formData.value.userRole
+            })
+            ElMessage.success('更新用户成功')
         }
+        dialogVisible.value = false
+        loadUsers()
     } catch (error: any) {
-        ElMessage.error(error.message || '操作失败')
+        // 错误已由 request 拦截器处理
     }
 }
 
@@ -143,10 +144,13 @@ async function handleDelete(row: UserVo) {
             type: 'warning',
         })
 
-        // 删除需要用户ID
-        ElMessage.info('删除功能需要用户ID，请完善API')
-    } catch {
-        // 用户取消
+        await deleteUser(row.id)
+        ElMessage.success('删除成功')
+        loadUsers()
+    } catch (error: any) {
+        if (error !== 'cancel') {
+            // 错误已由 request 拦截器处理
+        }
     }
 }
 
