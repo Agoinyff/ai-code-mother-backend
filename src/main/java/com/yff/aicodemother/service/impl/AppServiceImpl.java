@@ -9,6 +9,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yff.aicodemother.ai.core.AiCodeGeneratorFacade;
+import com.yff.aicodemother.ai.core.handler.StreamHandlerExecutor;
 import com.yff.aicodemother.ai.model.enums.CodeGenTypeEnum;
 import com.yff.aicodemother.constant.AppConstant;
 import com.yff.aicodemother.exception.BusinessException;
@@ -51,6 +52,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Autowired
     private ChatHistoryService chatHistoryService;
+
+    @Autowired
+    private StreamHandlerExecutor streamHandlerExecutor;
 
     @Override
     public Long createApp(AppAddRequest appAddRequest, Long userId) {
@@ -219,29 +223,10 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
         // 2. 生成代码流并保存 AI 响应
         StringBuilder aiResponseBuilder = new StringBuilder();
-        return aiCodeGeneratorFacade.generateAndSaveCodeStream(userMessage, codeGenTypeEnum, appId)
-                .doOnNext(chunk -> {
-                    // 累积 AI 响应内容
-                    aiResponseBuilder.append(chunk);
-                })
-                .doOnComplete(() -> {
-                    // 流完成时，保存 AI 消息到对话历史
-                    ChatHistoryAddRequest aiHistoryRequest = new ChatHistoryAddRequest();
-                    aiHistoryRequest.setAppId(appId);
-                    aiHistoryRequest.setUserId(user.getId());
-                    aiHistoryRequest.setMessage(aiResponseBuilder.toString());
-                    aiHistoryRequest.setMessageType(MessageTypeEnum.AI.getValue());
-                    chatHistoryService.saveChatMessage(aiHistoryRequest);
-                })
-                .doOnError(error -> {
-                    // 流出错时，保存错误消息到对话历史
-                    ChatHistoryAddRequest errorHistoryRequest = new ChatHistoryAddRequest();
-                    errorHistoryRequest.setAppId(appId);
-                    errorHistoryRequest.setUserId(user.getId());
-                    errorHistoryRequest.setMessage("AI 回复失败：" + error.getMessage());
-                    errorHistoryRequest.setMessageType(MessageTypeEnum.ERROR.getValue());
-                    chatHistoryService.saveChatMessage(errorHistoryRequest);
-                });
+        Flux<String> codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream(userMessage, codeGenTypeEnum, appId);
+
+        return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, user, codeGenTypeEnum);
+
 
     }
 
