@@ -1,10 +1,10 @@
 package com.yff.aicodemother.ai;
 
-
 import com.yff.aicodemother.ai.model.HtmlCodeResult;
 import com.yff.aicodemother.ai.model.MultiFileCodeResult;
 import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.SystemMessage;
+import dev.langchain4j.service.TokenStream;
 import dev.langchain4j.service.UserMessage;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -14,7 +14,6 @@ import reactor.core.publisher.Flux;
  * @date 2026-02-05 10:24:53
  */
 public interface AICodeGeneratorService {
-
 
     String generateCode(String userMessage);
 
@@ -36,9 +35,7 @@ public interface AICodeGeneratorService {
     @SystemMessage(fromResource = "prompt/codegen-multi-file-system-prompt.txt")
     MultiFileCodeResult generateMultiFileCode(String userMessage);
 
-
-    //以下是新增的流式方法
-
+    // 以下是新增的流式方法
 
     /**
      * 流式生成HTML代码
@@ -58,18 +55,24 @@ public interface AICodeGeneratorService {
     @SystemMessage(fromResource = "prompt/codegen-multi-file-system-prompt.txt")
     Flux<String> generateMultiFileCodeStream(String userMessage);
 
+    /**
+     * 流式生成Vue项目代码 (TokenStream版本,用于工具调用场景)
+     * 
+     * @param appId       应用ID
+     * @param userMessage 用户输入的信息
+     * @return TokenStream
+     */
+    @SystemMessage(fromResource = "prompt/codegen-vue-project-system-prompt.txt")
+    TokenStream generateVueProjectTokenStream(@MemoryId long appId, @UserMessage String userMessage);
 
     /**
      * 流式生成Vue项目代码
+     * 
      * @param appId       应用ID
      * @param userMessage 用户输入的信息
      * @return 生成的Vue项目代码流
      */
     @SystemMessage(fromResource = "prompt/codegen-vue-project-system-prompt.txt")
     Flux<String> generateVueProjectCodeStream(@MemoryId long appId, @UserMessage String userMessage);
-
-
-
-
 
 }

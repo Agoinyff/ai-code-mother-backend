@@ -222,11 +222,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         chatHistoryService.saveChatMessage(userHistoryRequest);
 
         // 2. 生成代码流并保存 AI 响应
-        StringBuilder aiResponseBuilder = new StringBuilder();
         Flux<String> codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream(userMessage, codeGenTypeEnum, appId);
 
         return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, user, codeGenTypeEnum);
-
 
     }
 

@@ -128,18 +128,13 @@ public class AiCodeGeneratorServiceFactory {
                 .builder()
                 .id(appId)
                 .chatMemoryStore(redisChatMemoryStore)
-                .maxMessages(50)
+                .maxMessages(100)
                 .build();
         // 从数据库加载历史对话到记忆中
         chatHistoryService.loadChatHistoryToMemory(appId, chatMemory, 50);
 
         // 修改代码实现根据codeGenTypeEnum选择不同的配置
         return switch (codeGenTypeEnum) {
-            // vue项目 - 使用chatModel而非streamingChatModel，因为Gemini的OpenAI兼容API
-            // 在流式模式下返回tool call时，toolCall.index()为null，导致langchain4j的
-            // ConcurrentHashMap.computeIfAbsent抛出NullPointerException。
-            // 同时配置chatModel和streamingChatModel：tool
-            // calling阶段用chatModel（非流式），文本生成用streamingChatModel（流式）
             case VUE_PROJECT -> AiServices.builder(AICodeGeneratorService.class)
                     .chatModel(chatModel)
                     .streamingChatModel(streamingChatModel)
