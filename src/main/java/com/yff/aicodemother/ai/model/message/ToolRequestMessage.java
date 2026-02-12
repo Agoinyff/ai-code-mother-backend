@@ -1,6 +1,8 @@
 package com.yff.aicodemother.ai.model.message;
 
 
+import dev.langchain4j.agent.tool.ToolExecutionRequest;
+import dev.langchain4j.model.chat.response.PartialToolCall;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -22,11 +24,11 @@ public class ToolRequestMessage extends StreamMessage{
     private String name;
     private String arguments;
 
-    public ToolRequestMessage(String id, String name, String arguments) {
+    public ToolRequestMessage(PartialToolCall partialToolCall) {
         super(StreamMessageTypeEnum.TOOL_REQUEST.getValue());
-        this.id = id;
-        this.name = name;
-        this.arguments = arguments;
+        this.id = partialToolCall.id();
+        this.name = partialToolCall.name();
+        this.arguments = partialToolCall.partialArguments();
     }
 
 
