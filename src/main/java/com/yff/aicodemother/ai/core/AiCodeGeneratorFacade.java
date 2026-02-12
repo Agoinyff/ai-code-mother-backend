@@ -99,9 +99,12 @@ public class AiCodeGeneratorFacade {
                 yield processCodeStream(codeStream, CodeGenTypeEnum.MULTI_FILE, appId);
             }
             case VUE_PROJECT -> {
+                // VUE_PROJECT 使用 TokenStream 获取工具调用信息
+                // 通过 processCodeStream 保持流的订阅，避免 HTTP 连接提前关闭
+                // 注意：虽然传入 MULTI_FILE，但实际文件保存由 FileWriteTool 完成
                 TokenStream tokenStream = aiCodeGeneratorService.generateVueProjectTokenStream(appId, userMessage);
                 Flux<String> jsonStream = processTokenStream(tokenStream);
-                yield processCodeStream(jsonStream, CodeGenTypeEnum.VUE_PROJECT, appId);
+                yield processCodeStream(jsonStream, CodeGenTypeEnum.MULTI_FILE, appId);
             }
             default -> {
                 String errorMsg = String.format("不支持的生成类型：%s", codeGenTypeEnum.getValue());
@@ -133,9 +136,11 @@ public class AiCodeGeneratorFacade {
                             try {
                                 String completeCode = codeBuilder.toString();
                                 log.info("完整多文件代码内容：\n{}", completeCode);
-                                // MultiFileCodeResult multiFileCodeResult = CodeParser.parseMultiFileCode(completeCode); //通过解析器获取完整代码结果对象
+                                // MultiFileCodeResult multiFileCodeResult =
+                                // CodeParser.parseMultiFileCode(completeCode); //通过解析器获取完整代码结果对象
                                 Object parseResult = CodeParserExecutor.executeParse(completeCode, codeGenTypeEnum);// 使用解析器解析代码
-                                // File savedDir = CodeFileSaver.saveMultiFileCodeResult(multiFileCodeResult);//保存文件
+                                // File savedDir =
+                                // CodeFileSaver.saveMultiFileCodeResult(multiFileCodeResult);//保存文件
                                 File savedDir = CodeFileSaverExecutor.executeSaver(parseResult, codeGenTypeEnum, appId);// 使用保存器保存代码文件
                                 log.info("保存到目录：{}", savedDir.getAbsolutePath());
                             } catch (Exception e) {
