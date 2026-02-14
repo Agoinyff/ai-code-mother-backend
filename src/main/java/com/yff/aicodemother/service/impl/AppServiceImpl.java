@@ -9,6 +9,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yff.aicodemother.ai.core.AiCodeGeneratorFacade;
+import com.yff.aicodemother.ai.core.builder.VueProjectBuilder;
 import com.yff.aicodemother.ai.core.handler.StreamHandlerExecutor;
 import com.yff.aicodemother.ai.model.enums.CodeGenTypeEnum;
 import com.yff.aicodemother.constant.AppConstant;
@@ -28,6 +29,8 @@ import com.yff.aicodemother.model.enums.MessageTypeEnum;
 import com.yff.aicodemother.model.vo.AppVo;
 import com.yff.aicodemother.service.AppService;
 import com.yff.aicodemother.service.ChatHistoryService;
+import lombok.extern.slf4j.Slf4j;
+import org.aspectj.apache.bcel.classfile.Code;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -42,6 +45,7 @@ import java.time.LocalDateTime;
  * @since 2026-02-06
  */
 @Service
+@Slf4j
 public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppService {
 
     @Autowired
@@ -55,6 +59,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Autowired
     private StreamHandlerExecutor streamHandlerExecutor;
+    @Autowired
+    private VueProjectBuilder vueProjectBuilder;
 
     @Override
     public Long createApp(AppAddRequest appAddRequest, Long userId) {
@@ -254,6 +260,21 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         if (!sourceDir.exists() || !sourceDir.isDirectory()) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "应用代码不存在，无法部署,请先生成代码");
         }
+
+        //Vue项目特殊处理，部署前需要将代码构建成dist目录
+        CodeGenTypeEnum enumByValue = CodeGenTypeEnum.getEnumByValue(codeGenType);
+        if (enumByValue==CodeGenTypeEnum.VUE_PROJECT){
+            // 构建Vue项目
+            boolean buildSuccess = vueProjectBuilder.buildProject(sourceDirPath);
+            ThrowUtils.throwIf(!buildSuccess, ErrorCode.SYSTEM_ERROR, "Vue项目构建失败，无法部署");
+            //检查dist目录是否存在
+            File distDir = new File(sourceDir, "dist");
+            ThrowUtils.throwIf(!distDir.exists(), ErrorCode.SYSTEM_ERROR, "Vue项目构建完成但是未生成dist目录");
+            //将dist目录作为部署源
+            sourceDir = distDir;
+            log.info("Vue项目构建成功，使用dist目录进行部署: {}", distDir.getAbsolutePath());
+        }
+
 
         // 目录存在则复制文件到部署目录
         String deployDirPath = AppConstant.CODE_DEPLOY_ROOT_DIR + File.separator + deployKey;

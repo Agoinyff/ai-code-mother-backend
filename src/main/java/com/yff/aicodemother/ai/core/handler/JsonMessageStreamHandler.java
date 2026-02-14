@@ -4,12 +4,16 @@ import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.yff.aicodemother.ai.core.builder.VueProjectBuilder;
 import com.yff.aicodemother.ai.model.message.*;
+import com.yff.aicodemother.constant.AppConstant;
 import com.yff.aicodemother.model.dto.chathistory.ChatHistoryAddRequest;
 import com.yff.aicodemother.model.entity.User;
 import com.yff.aicodemother.model.enums.MessageTypeEnum;
 import com.yff.aicodemother.service.ChatHistoryService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
@@ -30,6 +34,9 @@ import java.util.HashSet;
 @Slf4j
 @Component
 public class JsonMessageStreamHandler {
+
+    @Autowired
+    private VueProjectBuilder vueProjectBuilder;
 
     /**
      * * 处理 TokenStream 中的 JSON 消息流，解析消息并提取工具调用信息，同时构建后端记忆格式的聊天历史字符串
@@ -63,6 +70,9 @@ public class JsonMessageStreamHandler {
                     aiResponse.setMessage(chatHistoryStringBuilder.toString());
                     aiResponse.setMessageType(MessageTypeEnum.AI.getValue());
                     chatHistoryService.saveChatMessage(aiResponse);
+                    //异步构建Vue项目
+                    String projectPath = AppConstant.CODE_OUTPUT_ROOT_DIR + "/vue_project" + appId;
+                    vueProjectBuilder.buildProjectAsync(projectPath);
                 }).doOnError(error -> {
                     // 流出错时，保存错误消息到对话历史
                     ChatHistoryAddRequest errorHistoryRequest = new ChatHistoryAddRequest();
