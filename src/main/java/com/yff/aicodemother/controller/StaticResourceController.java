@@ -63,17 +63,37 @@ public class StaticResourceController {
                 resourcePath = "/index.html";
             }
 
-            // 构建文件路径
-            String filePath = PREVIEW_ROOT_DIR + File.separator + deployKey + resourcePath;
-            File file = new File(filePath);
+            String baseDir = PREVIEW_ROOT_DIR + File.separator + deployKey;
+
+            // 优先从 dist 子目录查找（VUE_PROJECT 构建产物在 dist/ 下）
+            // 这样可以避免返回 Vue 源码目录下的开发版 index.html（含 /src/main.js）
+            File file = new File(baseDir + File.separator + "dist" + resourcePath);
+
+            // dist 子目录找不到时，再从根目录查找（HTML 单页项目直接在根目录）
+            if (!file.exists() || !file.isFile()) {
+                File rootFile = new File(baseDir + resourcePath);
+                if (rootFile.exists() && rootFile.isFile()) {
+                    file = rootFile;
+                }
+            }
+
             // 检查文件是否存在
             if (!file.exists() || !file.isFile()) {
-                return ResponseEntity.notFound().build(); // 直接返回一个页面404
+                // Vue Router history 模式：找不到文件时回退到 dist/index.html
+                File indexFile = new File(baseDir + File.separator + "dist" + File.separator + "index.html");
+                if (!indexFile.exists()) {
+                    indexFile = new File(baseDir + File.separator + "index.html");
+                }
+                if (indexFile.exists()) {
+                    FileSystemResource resource = new FileSystemResource(indexFile);
+                    return ResponseEntity.ok().header("Content-Type", "text/html; charset=UTF-8").body(resource);
+                }
+                return ResponseEntity.notFound().build();
             }
 
             // 返回文件资源
             FileSystemResource resource = new FileSystemResource(file);
-            return ResponseEntity.ok().header("Content-Type", getContentType(filePath)).body(resource);
+            return ResponseEntity.ok().header("Content-Type", getContentType(file.getName())).body(resource);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }

@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { deployApp } from '@/api/app'
+import { getDeployVersions, rollbackDeploy, stopDeploy, type DeployHistory } from '@/api/deploy'
 import { getPreviewUrl } from '@/api/sse'
 import { ElMessage, ElDialog, ElButton, ElInput } from 'element-plus'
 
@@ -61,6 +62,17 @@ async function sendMessage() {
 const showDeployDialog = ref(false)
 const deployUrl = ref('')
 const isDeploying = ref(false)
+const deployVersions = ref<DeployHistory[]>([])
+const isLoadingVersions = ref(false)
+const isRollingBack = ref(false)
+
+// 已部署状态管理
+const runningDeploy = ref<DeployHistory | null>(null)  // 当前运行中的部署
+const showManageDrawer = ref(false)                    // 部署管理抗屉
+const isStopping = ref(false)                          // 停止中状态
+
+// 是否已部署（有运行中的容器）
+const isDeployed = computed(() => runningDeploy.value !== null)
 
 async function handleDeploy() {
     if (!currentApp.value) return
@@ -71,10 +83,74 @@ async function handleDeploy() {
         showDeployDialog.value = true
         // 刷新应用信息获取最新 deployKey
         await appStore.loadApp(appId.value)
+        // 加载版本历史
+        await loadVersions()
+        // 更新运行中部署状态
+        await loadRunningDeploy()
     } catch (error: any) {
         ElMessage.error(error.message || '部署失败')
     } finally {
         isDeploying.value = false
+    }
+}
+
+async function loadRunningDeploy() {
+    if (!currentApp.value) return
+    try {
+        const res = await getDeployVersions(currentApp.value.id)
+        const versions = res.data || []
+        runningDeploy.value = versions.find(v => v.status === 'RUNNING') || null
+    } catch (e) {
+        console.error('加载运行状态失败', e)
+    }
+}
+
+async function handleStopDeploy() {
+    if (!currentApp.value) return
+    isStopping.value = true
+    try {
+        await stopDeploy(currentApp.value.id)
+        runningDeploy.value = null
+        showManageDrawer.value = false
+        await appStore.loadApp(appId.value)
+        ElMessage.success('应用已成功下线')
+    } catch (error: any) {
+        ElMessage.error(error.message || '下线失败')
+    } finally {
+        isStopping.value = false
+    }
+}
+
+function openManageDrawer() {
+    loadVersions()
+    showManageDrawer.value = true
+}
+
+async function loadVersions() {
+    if (!currentApp.value) return
+    isLoadingVersions.value = true
+    try {
+        const res = await getDeployVersions(currentApp.value.id)
+        deployVersions.value = res.data || []
+    } catch (e) {
+        console.error('加载版本历史失败', e)
+    } finally {
+        isLoadingVersions.value = false
+    }
+}
+
+async function handleRollback(version: number) {
+    if (!currentApp.value) return
+    isRollingBack.value = true
+    try {
+        const res = await rollbackDeploy(currentApp.value.id, version)
+        deployUrl.value = res.data
+        ElMessage.success(`已回滚到 v${version}`)
+        await loadVersions()
+    } catch (error: any) {
+        ElMessage.error(error.message || '回滚失败')
+    } finally {
+        isRollingBack.value = false
     }
 }
 
@@ -87,12 +163,11 @@ function openDeployUrl() {
     window.open(deployUrl.value, '_blank')
 }
 
-// 预览 URL（使用 StaticResourceController 接口）
+// 预览 URL（使用 StaticResourceController 接口，始终指向 code_output 目录）
 const previewUrl = computed(() => {
-    if (currentApp.value?.deployKey) {
-        return getPreviewUrl(currentApp.value.deployKey)
-    }
     if (currentApp.value) {
+        // 始终用 {codeGenType}_{appId} 格式，对应 code_output/{codeGenType}_{appId}/ 目录
+        // deployKey 是部署容器的标识，不是预览目录名
         return getPreviewUrl(`${currentApp.value.codeGenType}_${currentApp.value.id}`)
     }
     return null
@@ -130,6 +205,15 @@ onMounted(async () => {
         await appStore.loadApp(appId.value)
         // 历史消息已在 loadApp 中自动加载
         scrollToBottom()
+        // 检查是否已有运行中的部署
+        await loadRunningDeploy()
+
+        // 如果从主页跳转过来携带了初始消息，自动发送
+        const initMessage = route.query.initMessage as string
+        if (initMessage && initMessage.trim()) {
+            await appStore.sendMessage(initMessage.trim())
+            scrollToBottom()
+        }
     } catch (error) {
         console.error('[ChatPage] 加载应用失败:', error)
         ElMessage.error('加载应用失败')
@@ -177,6 +261,15 @@ async function loadMoreHistory() {
                 <span class="app-name">{{ currentApp?.appName || '应用名称' }}</span>
             </div>
             <div class="header-right">
+                <!-- 已部署状态徽章 -->
+                <div v-if="isDeployed" class="deployed-badge" @click="openManageDrawer">
+                    <span class="deployed-dot"></span>
+                    <span class="deployed-text">已上线</span>
+                    <el-button text size="small" class="manage-btn">
+                        管理
+                        <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                    </el-button>
+                </div>
                 <el-button
                     v-if="showPreview && previewUrl"
                     type="primary"
@@ -185,7 +278,7 @@ async function loadMoreHistory() {
                     class="deploy-btn"
                 >
                     <el-icon><Upload /></el-icon>
-                    部署上线
+                    {{ isDeployed ? '重新部署' : '部署上线' }}
                 </el-button>
             </div>
         </header>
@@ -273,15 +366,6 @@ async function loadMoreHistory() {
                         <div class="preview-header">
                             <span class="preview-title">🖥️ 实时预览</span>
                             <div class="preview-actions">
-                                <el-button 
-                                    type="primary" 
-                                    size="small" 
-                                    :loading="isDeploying"
-                                    @click="handleDeploy"
-                                >
-                                    <el-icon v-if="!isDeploying"><Upload /></el-icon>
-                                    {{ isDeploying ? '部署中...' : '部署应用' }}
-                                </el-button>
                                 <el-button text size="small" @click="refreshPreview">
                                     <el-icon><Refresh /></el-icon>
                                     刷新
@@ -308,12 +392,46 @@ async function loadMoreHistory() {
         </div>
 
         <!-- 部署成功弹窗 -->
-        <ElDialog v-model="showDeployDialog" title="🎉 部署成功" width="480px" center>
+        <ElDialog v-model="showDeployDialog" title="🎉 部署成功" width="600px" center>
             <div class="deploy-success">
                 <p>您的应用已成功部署，访问链接：</p>
                 <div class="deploy-url">
                     <code>{{ deployUrl }}</code>
                     <el-button type="primary" size="small" @click="copyDeployUrl">复制</el-button>
+                </div>
+
+                <!-- 版本历史 -->
+                <div v-if="deployVersions.length > 0" class="version-history">
+                    <h4 style="margin: 16px 0 8px; color: #666;">📋 部署版本历史</h4>
+                    <el-table :data="deployVersions" size="small" :loading="isLoadingVersions" max-height="250">
+                        <el-table-column prop="version" label="版本" width="70" align="center">
+                            <template #default="{ row }">
+                                <el-tag size="small">v{{ row.version }}</el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="status" label="状态" width="90" align="center">
+                            <template #default="{ row }">
+                                <el-tag :type="row.status === 'RUNNING' ? 'success' : 'info'" size="small">
+                                    {{ row.status }}
+                                </el-tag>
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="createTime" label="部署时间" width="170" />
+                        <el-table-column label="操作" width="100" align="center">
+                            <template #default="{ row }">
+                                <el-button
+                                    v-if="row.status !== 'RUNNING'"
+                                    type="warning"
+                                    size="small"
+                                    :loading="isRollingBack"
+                                    @click="handleRollback(row.version)"
+                                >
+                                    回滚
+                                </el-button>
+                                <el-tag v-else type="success" size="small">当前版本</el-tag>
+                            </template>
+                        </el-table-column>
+                    </el-table>
                 </div>
             </div>
             <template #footer>
@@ -321,6 +439,99 @@ async function loadMoreHistory() {
                 <el-button type="primary" @click="openDeployUrl">立即访问</el-button>
             </template>
         </ElDialog>
+
+        <!-- 部署管理抽屉 -->
+        <el-drawer
+            v-model="showManageDrawer"
+            title="🚀 部署管理"
+            direction="rtl"
+            size="420px"
+            modal-class="deploy-drawer-modal"
+        >
+            <div class="manage-drawer-content">
+                <!-- 当前运行状态 -->
+                <div v-if="runningDeploy" class="running-info-card">
+                    <div class="running-status">
+                        <span class="status-dot running"></span>
+                        <span class="status-label">运行中</span>
+                        <el-tag type="success" size="small">v{{ runningDeploy.version }}</el-tag>
+                    </div>
+                    <div class="deploy-url-row">
+                        <el-icon><Link /></el-icon>
+                        <a :href="runningDeploy.deployUrl" target="_blank" class="deploy-link">
+                            {{ runningDeploy.deployUrl }}
+                        </a>
+                    </div>
+                    <div class="deploy-time">
+                        <el-icon><Clock /></el-icon>
+                        <span>部署于 {{ runningDeploy.createTime }}</span>
+                    </div>
+                    <div class="running-actions">
+                        <el-button
+                            type="primary"
+                            @click="() => window.open(runningDeploy!.deployUrl, '_blank')"
+                        >
+                            <el-icon><Link /></el-icon>
+                            访问网站
+                        </el-button>
+                        <el-button
+                            @click="() => { navigator.clipboard.writeText(runningDeploy!.deployUrl); ElMessage.success('已复制') }"
+                        >
+                            <el-icon><CopyDocument /></el-icon>
+                            复制地址
+                        </el-button>
+                        <el-button
+                            type="danger"
+                            :loading="isStopping"
+                            @click="handleStopDeploy"
+                        >
+                            <el-icon><CircleClose /></el-icon>
+                            下线应用
+                        </el-button>
+                    </div>
+                </div>
+
+                <el-divider />
+
+                <!-- 版本历史 -->
+                <div class="version-section">
+                    <div class="version-section-title">
+                        <span>📋 部署版本历史</span>
+                        <el-button text size="small" @click="loadVersions" :loading="isLoadingVersions">
+                            <el-icon><Refresh /></el-icon>
+                        </el-button>
+                    </div>
+                    <div v-if="deployVersions.length === 0 && !isLoadingVersions" class="no-versions">
+                        暂无部署记录
+                    </div>
+                    <div
+                        v-for="item in deployVersions"
+                        :key="item.id"
+                        class="version-item"
+                        :class="{ 'version-running': item.status === 'RUNNING' }"
+                    >
+                        <div class="version-item-left">
+                            <el-tag
+                                :type="item.status === 'RUNNING' ? 'success' : 'info'"
+                                size="small"
+                            >v{{ item.version }}</el-tag>
+                            <span class="version-time">{{ item.createTime }}</span>
+                        </div>
+                        <div class="version-item-right">
+                            <el-tag v-if="item.status === 'RUNNING'" type="success" size="small" effect="plain">当前</el-tag>
+                            <el-button
+                                v-else
+                                size="small"
+                                type="warning"
+                                plain
+                                :loading="isRollingBack"
+                                @click="handleRollback(item.version)"
+                            >回滚</el-button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </el-drawer>
     </div>
 </template>
 
@@ -339,7 +550,7 @@ async function loadMoreHistory() {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
     flex-shrink: 0;
@@ -356,6 +567,12 @@ async function loadMoreHistory() {
     font-size: 16px;
     font-weight: 600;
     color: #1a1a1a;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .deploy-btn {
@@ -739,5 +956,204 @@ async function loadMoreHistory() {
 .load-more-btn:hover {
     color: #5a6fd6;
     transform: translateY(-2px);
+}
+
+/* ===== 已部署状态徽章 ===== */
+.deployed-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px 4px 10px;
+    background: rgba(52, 199, 89, 0.1);
+    border: 1px solid rgba(52, 199, 89, 0.3);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-right: 8px;
+}
+
+.deployed-badge:hover {
+    background: rgba(52, 199, 89, 0.18);
+    border-color: rgba(52, 199, 89, 0.5);
+}
+
+.deployed-dot {
+    width: 8px;
+    height: 8px;
+    background: #34c759;
+    border-radius: 50%;
+    animation: pulse-green 2s infinite;
+    flex-shrink: 0;
+}
+
+@keyframes pulse-green {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.4); }
+    50% { box-shadow: 0 0 0 5px rgba(52, 199, 89, 0); }
+}
+
+.deployed-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: #34c759;
+}
+
+.manage-btn {
+    color: #34c759 !important;
+    padding: 0 !important;
+    font-size: 13px !important;
+}
+
+/* ===== 部署管理抽屉内容 ===== */
+.manage-drawer-content {
+    padding: 0 4px;
+}
+
+.running-info-card {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border: 1px solid #bbf7d0;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.running-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.status-dot.running {
+    background: #22c55e;
+    animation: pulse-green 2s infinite;
+}
+
+.status-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #15803d;
+}
+
+.deploy-url-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.7);
+    border-radius: 8px;
+    padding: 8px 12px;
+}
+
+.deploy-url-row .el-icon {
+    color: #667eea;
+    flex-shrink: 0;
+}
+
+.deploy-link {
+    font-size: 13px;
+    color: #667eea;
+    text-decoration: none;
+    word-break: break-all;
+    font-weight: 500;
+}
+
+.deploy-link:hover {
+    text-decoration: underline;
+}
+
+.deploy-time {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.running-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.running-actions .el-button {
+    flex: 1;
+    min-width: 90px;
+}
+
+/* ===== 版本历史列表 ===== */
+.version-section {
+    margin-top: 4px;
+}
+
+.version-section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 12px;
+}
+
+.no-versions {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 13px;
+    padding: 24px 0;
+}
+
+.version-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #f3f4f6;
+    margin-bottom: 8px;
+    background: #fafafa;
+    transition: all 0.2s;
+}
+
+.version-item:hover {
+    border-color: #e5e7eb;
+    background: #f9fafb;
+}
+
+.version-item.version-running {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+}
+
+.version-item-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.version-time {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.version-item-right {
+    flex-shrink: 0;
+}
+
+/* 消除抽屉顶部留空 */
+:deep(.el-drawer__header) {
+    margin-bottom: 0;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+:deep(.el-drawer__body) {
+    padding: 16px 20px;
 }
 </style>

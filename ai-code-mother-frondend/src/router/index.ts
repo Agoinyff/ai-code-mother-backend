@@ -13,7 +13,7 @@ const router = createRouter({
       path: '/chat/:appId',
       name: 'chat',
       component: () => import('@/views/ChatPage.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, hideNav: true },
     },
     {
       path: '/login',

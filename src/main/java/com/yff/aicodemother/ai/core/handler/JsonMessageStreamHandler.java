@@ -70,8 +70,8 @@ public class JsonMessageStreamHandler {
                     aiResponse.setMessage(chatHistoryStringBuilder.toString());
                     aiResponse.setMessageType(MessageTypeEnum.AI.getValue());
                     chatHistoryService.saveChatMessage(aiResponse);
-                    //异步构建Vue项目
-                    String projectPath = AppConstant.CODE_OUTPUT_ROOT_DIR + "/vue_project" + appId;
+                    // 异步构建Vue项目
+                    String projectPath = AppConstant.CODE_OUTPUT_ROOT_DIR + "/vue_project_" + appId;
                     vueProjectBuilder.buildProjectAsync(projectPath);
                 }).doOnError(error -> {
                     // 流出错时，保存错误消息到对话历史

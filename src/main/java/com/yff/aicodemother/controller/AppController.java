@@ -137,32 +137,28 @@ public class AppController {
      * @param userMessage 用户消息
      * @return 代码生成结果流
      */
-    @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE) //声明为SSE流式返回
+    @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE) // 声明为SSE流式返回
     @Operation(summary = "聊天生成代码（SSE 流式返回）")
     public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId, @RequestParam String userMessage) {
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID不合法");
         ThrowUtils.throwIf(userMessage == null || userMessage.trim().isEmpty(), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
 
-        //获取当前登录用户
+        // 获取当前登录用户
         Long userId = UserHolder.getUserId();
-        User user = userService.getById(userId);//确保用户存在，否则抛出异常
-        //调用服务层方法进行流式代码生成
+        User user = userService.getById(userId);// 确保用户存在，否则抛出异常
+        // 调用服务层方法进行流式代码生成
         Flux<String> contentFlux = appService.chatToGenCode(appId, userMessage, user);
         return contentFlux.map(
                 chuck -> {
-                    //将内容包装成json对象
+                    // 将内容包装成json对象
                     Map<String, String> wrapper = Map.of("d", chuck);
                     String jsonData = JSONUtil.toJsonStr(wrapper);
                     return ServerSentEvent.<String>builder().data(jsonData).build();
-                }
-        ).concatWith(Mono.just(  //concatWith 用于在流的末尾添加结束标志    Mono.just创建一个 只包含一个结束标志事件 的 Mono，用于在流结束时发送
-                        //发送结束标志
-                        ServerSentEvent.<String>builder().event("done").data("").build()
-                )
-        );
+                }).concatWith(Mono.just( // concatWith 用于在流的末尾添加结束标志 Mono.just创建一个 只包含一个结束标志事件 的 Mono，用于在流结束时发送
+                        // 发送结束标志
+                        ServerSentEvent.<String>builder().event("done").data("").build()));
 
     }
-
 
     /**
      * 部署应用
@@ -171,19 +167,106 @@ public class AppController {
      * @return 部署URL
      */
     @PostMapping("/deploy")
-    @Operation(summary = "部署应用")
+    @Operation(summary = "部署应用（Docker 容器化）")
     public BaseResponse<String> deployApp(@RequestBody AppDeployRequest appDeployRequest) {
         ThrowUtils.throwIf(appDeployRequest == null, ErrorCode.PARAMS_ERROR);
         Long appId = appDeployRequest.getAppId();
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID不合法");
-        //获取当前登录用户
+        // 获取当前登录用户
         Long userId = UserHolder.getUserId();
         User loginUser = userService.getById(userId);
-        //调用服务层方法进行部署
+        // 调用服务层方法进行部署
         String deployUrl = appService.deployApp(appId, loginUser);
         return ResultUtils.success(deployUrl);
     }
 
+    // ==================== Docker 预览与版本管理接口 ====================
+
+    /**
+     * 启动 Docker 预览容器（仅用于 VUE_PROJECT 类型）
+     *
+     * @param appDeployRequest 包含 appId
+     * @return 预览访问 URL
+     */
+    @PostMapping("/preview/start")
+    @Operation(summary = "启动预览容器")
+    public BaseResponse<String> startPreview(@RequestBody AppDeployRequest appDeployRequest) {
+        ThrowUtils.throwIf(appDeployRequest == null, ErrorCode.PARAMS_ERROR);
+        Long appId = appDeployRequest.getAppId();
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID不合法");
+        Long userId = UserHolder.getUserId();
+        User loginUser = userService.getById(userId);
+        String previewUrl = appService.startPreview(appId, loginUser);
+        return ResultUtils.success(previewUrl);
+    }
+
+    /**
+     * 停止 Docker 预览容器
+     *
+     * @param appDeployRequest 包含 appId
+     * @return 是否成功
+     */
+    @PostMapping("/preview/stop")
+    @Operation(summary = "停止预览容器")
+    public BaseResponse<Boolean> stopPreview(@RequestBody AppDeployRequest appDeployRequest) {
+        ThrowUtils.throwIf(appDeployRequest == null, ErrorCode.PARAMS_ERROR);
+        Long appId = appDeployRequest.getAppId();
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID不合法");
+        Long userId = UserHolder.getUserId();
+        User loginUser = userService.getById(userId);
+        appService.stopPreview(appId, loginUser);
+        return ResultUtils.success(true);
+    }
+
+    /**
+     * 查询应用的部署版本历史
+     *
+     * @param appId 应用ID
+     * @return 部署版本列表
+     */
+    @GetMapping("/deploy/versions")
+    @Operation(summary = "查询部署版本历史")
+    public BaseResponse<java.util.List<com.yff.aicodemother.model.entity.DeployHistory>> getDeployVersions(
+            @RequestParam Long appId) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID不合法");
+        return ResultUtils.success(appService.getDeployVersions(appId));
+    }
+
+    /**
+     * 回滚到指定部署版本
+     *
+     * @param appId   应用ID
+     * @param version 目标版本号
+     * @return 回滚后的访问 URL
+     */
+    @PostMapping("/deploy/rollback")
+    @Operation(summary = "回滚到指定部署版本")
+    public BaseResponse<String> rollbackDeploy(@RequestParam Long appId, @RequestParam Integer version) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID不合法");
+        ThrowUtils.throwIf(version == null || version <= 0, ErrorCode.PARAMS_ERROR, "版本号不合法");
+        Long userId = UserHolder.getUserId();
+        User loginUser = userService.getById(userId);
+        String deployUrl = appService.rollbackDeploy(appId, version, loginUser);
+        return ResultUtils.success(deployUrl);
+    }
+
+    /**
+     * 停止已部署的容器（下线应用）
+     *
+     * @param appDeployRequest 包含 appId
+     * @return 是否成功
+     */
+    @PostMapping("/deploy/stop")
+    @Operation(summary = "停止部署容器（下线应用）")
+    public BaseResponse<Boolean> stopDeploy(@RequestBody AppDeployRequest appDeployRequest) {
+        ThrowUtils.throwIf(appDeployRequest == null, ErrorCode.PARAMS_ERROR);
+        Long appId = appDeployRequest.getAppId();
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID不合法");
+        Long userId = UserHolder.getUserId();
+        User loginUser = userService.getById(userId);
+        appService.stopDeploy(appId, loginUser);
+        return ResultUtils.success(true);
+    }
 
     // ==================== 管理员接口 ====================
 

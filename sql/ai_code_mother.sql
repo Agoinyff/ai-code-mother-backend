@@ -54,7 +54,6 @@ create table app
 ) comment '应用' collate = utf8mb4_unicode_ci;
 
 
-
 -- 对话历史表
 create table chat_history
 (
@@ -63,10 +62,32 @@ create table chat_history
     messageType varchar(32)                        not null comment 'user/ai',
     appId       bigint                             not null comment '应用id',
     userId      bigint                             not null comment '创建用户id',
-    createTime  datetime default CURRENT_TIMESTAMP  not null comment '创建时间',
-    updateTime  datetime default CURRENT_TIMESTAMP  not null on update CURRENT_TIMESTAMP comment '更新时间',
+    createTime  datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    updateTime  datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
     isDelete    tinyint  default 0                 not null comment '是否删除',
     INDEX idx_appId (appId),                       -- 提升基于应用的查询性能
     INDEX idx_createTime (createTime),             -- 提升基于时间的查询性能
     INDEX idx_appId_createTime (appId, createTime) -- 游标查询核心索引
 ) comment '对话历史' collate = utf8mb4_unicode_ci;
+
+
+-- 部署历史表（Docker 容器化部署版本管理）
+CREATE TABLE IF NOT EXISTS `deploy_history`
+(
+    `id`             BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `app_id`         BIGINT      NOT NULL COMMENT '关联应用ID',
+    `version`        INT         NOT NULL COMMENT '部署版本号（同一应用内自增）',
+    `image_tag`      VARCHAR(255)         DEFAULT NULL COMMENT 'Docker 镜像标签',
+    `container_id`   VARCHAR(128)         DEFAULT NULL COMMENT 'Docker 容器ID',
+    `container_port` INT                  DEFAULT NULL COMMENT '容器映射端口',
+    `status`         VARCHAR(20) NOT NULL DEFAULT 'RUNNING' COMMENT '状态：RUNNING/STOPPED/FAILED',
+    `deploy_url`     VARCHAR(255)         DEFAULT NULL COMMENT '部署访问URL',
+    `user_id`        BIGINT      NOT NULL COMMENT '部署者用户ID',
+    `create_time`    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '部署时间',
+    `update_time`    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    INDEX `idx_app_id` (`app_id`),
+    INDEX `idx_app_version` (`app_id`, `version`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci COMMENT ='部署历史记录表';

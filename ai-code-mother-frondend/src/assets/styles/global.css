@@ -185,3 +185,13 @@ a:hover {
 ::-webkit-scrollbar-thumb:hover {
     background: #b0b0b0;
 }
+
+/* ===== 部署管理抽屉：从导航栏下方开始，不被遮挡 ===== */
+.deploy-drawer-modal .el-overlay-drawer {
+    top: 60px !important;
+}
+
+.deploy-drawer-modal .el-drawer {
+    top: 60px !important;
+    height: calc(100vh - 60px) !important;
+}

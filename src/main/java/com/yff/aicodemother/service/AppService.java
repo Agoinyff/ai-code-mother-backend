@@ -107,11 +107,54 @@ public interface AppService extends IService<App> {
     Flux<String> chatToGenCode(Long appId, String userMessage, User user);
 
     /**
-     * 部署应用
+     * 部署应用（Docker 容器化部署）
      *
      * @param appId     应用ID
      * @param loginUser 当前登录用户
      * @return 部署后的应用访问URL
      */
     String deployApp(Long appId, User loginUser);
+
+    /**
+     * 启动预览容器（仅用于 VUE_PROJECT 类型）
+     *
+     * @param appId     应用ID
+     * @param loginUser 当前登录用户
+     * @return 预览访问 URL
+     */
+    String startPreview(Long appId, User loginUser);
+
+    /**
+     * 停止预览容器
+     *
+     * @param appId     应用ID
+     * @param loginUser 当前登录用户
+     */
+    void stopPreview(Long appId, User loginUser);
+
+    /**
+     * 查询应用的部署版本历史
+     *
+     * @param appId 应用ID
+     * @return 部署历史列表
+     */
+    java.util.List<com.yff.aicodemother.model.entity.DeployHistory> getDeployVersions(Long appId);
+
+    /**
+     * 回滚到指定部署版本
+     *
+     * @param appId     应用ID
+     * @param version   目标版本号
+     * @param loginUser 当前登录用户
+     * @return 回滚后的访问 URL
+     */
+    String rollbackDeploy(Long appId, Integer version, User loginUser);
+
+    /**
+     * 停止已部署的容器（下线应用）
+     *
+     * @param appId     应用ID
+     * @param loginUser 当前登录用户
+     */
+    void stopDeploy(Long appId, User loginUser);
 }

@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { RouterView } from 'vue-router'
+import { computed, onMounted } from 'vue'
+import { RouterView, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import HeaderNav from '@/components/common/HeaderNav.vue'
 
 const userStore = useUserStore()
+const route = useRoute()
+
+const hideNav = computed(() => !!route.meta.hideNav)
 
 onMounted(() => {
     userStore.initUserInfo()
@@ -13,8 +16,8 @@ onMounted(() => {
 
 <template>
     <div id="app">
-        <HeaderNav />
-        <main class="main-content">
+        <HeaderNav v-if="!hideNav" />
+        <main class="main-content" :class="{ 'with-nav': !hideNav }">
             <RouterView />
         </main>
     </div>
@@ -29,5 +32,9 @@ onMounted(() => {
 
 .main-content {
     min-height: 100vh;
+}
+
+.main-content.with-nav {
+    padding-top: 60px;
 }
 </style>

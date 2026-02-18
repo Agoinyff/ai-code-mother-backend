@@ -74,10 +74,10 @@ async function handleCreate() {
     try {
         // 生成默认应用名称：取 prompt 前20个字符，或使用时间戳
         const trimmedPrompt = prompt.value.trim()
-        const defaultAppName = trimmedPrompt.length > 20 
-            ? trimmedPrompt.substring(0, 20) + '...' 
+        const defaultAppName = trimmedPrompt.length > 20
+            ? trimmedPrompt.substring(0, 20) + '...'
             : trimmedPrompt
-        
+
         const res = await createApp({
             appName: defaultAppName || `应用_${Date.now()}`,
             initPrompt: trimmedPrompt,
@@ -87,7 +87,8 @@ async function handleCreate() {
         const appId = res.data
         console.log('应用ID:', appId) // 调试日志
         if (appId) {
-            router.push(`/chat/${appId}`)
+            // 将初始 prompt 作为 query 参数传给 ChatPage，让其自动发送
+            router.push({ path: `/chat/${appId}`, query: { initMessage: trimmedPrompt } })
         } else {
             ElMessage.error('创建应用失败：未获取到应用ID')
         }
@@ -126,21 +127,21 @@ function handleAppClick(app: AppVo) {
                             <div class="radio-content">
                                 <el-icon><DocumentCopy /></el-icon>
                                 <div>
-                                    <div class="radio-title">单页面 HTML</div>
+                                    <div class="radio-title">原生HTML模式</div>
                                     <div class="radio-desc">快速生成单个HTML页面</div>
                                 </div>
                             </div>
                         </el-radio-button>
-                        <el-radio-button value="react">
+                        <el-radio-button value="multi_file">
                             <div class="radio-content">
                                 <el-icon><Files /></el-icon>
                                 <div>
-                                    <div class="radio-title">React 多页面</div>
-                                    <div class="radio-desc">生成完整React项目</div>
+                                    <div class="radio-title">原生多文件模式</div>
+                                    <div class="radio-desc">分别生成HTML,JS,CSS文件</div>
                                 </div>
                             </div>
                         </el-radio-button>
-                        <el-radio-button value="vue">
+                        <el-radio-button value="vue_project">
                             <div class="radio-content">
                                 <el-icon><Files /></el-icon>
                                 <div>
