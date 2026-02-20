@@ -1,11 +1,14 @@
 package com.yff.aicodemother.controller;
 
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yff.aicodemother.annotation.AuthCheck;
 import com.yff.aicodemother.common.BaseResponse;
 import com.yff.aicodemother.common.ResultUtils;
 import com.yff.aicodemother.common.login.UserHolder;
+import com.yff.aicodemother.constant.AppConstant;
+import com.yff.aicodemother.exception.BusinessException;
 import com.yff.aicodemother.exception.ErrorCode;
 import com.yff.aicodemother.exception.ThrowUtils;
 import com.yff.aicodemother.model.dto.app.*;
@@ -13,8 +16,10 @@ import com.yff.aicodemother.model.entity.App;
 import com.yff.aicodemother.model.entity.User;
 import com.yff.aicodemother.model.vo.AppVo;
 import com.yff.aicodemother.service.AppService;
+import com.yff.aicodemother.service.ProjectDownloadService;
 import com.yff.aicodemother.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
@@ -22,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.io.File;
 import java.util.Map;
 
 /**
@@ -38,6 +44,8 @@ public class AppController {
     private AppService appService;
     @Autowired
     private UserService userService;
+    @Autowired
+    private ProjectDownloadService projectDownloadService;
 
     // ==================== 普通用户接口 ====================
 
@@ -266,6 +274,50 @@ public class AppController {
         User loginUser = userService.getById(userId);
         appService.stopDeploy(appId, loginUser);
         return ResultUtils.success(true);
+    }
+
+    // ==================== 代码下载接口 ====================
+
+    /**
+     * 下载应用源码（打包为 ZIP）
+     *
+     * <p>
+     * 只有应用的创建者才有权限下载，ZIP 内容直接流式写入 HTTP 响应。
+     * 过滤掉 node_modules、dist/build、.env 等不必要的文件。
+     * </p>
+     *
+     * @param appId    应用ID
+     * @param response HTTP 响应对象
+     */
+    @GetMapping("/download")
+    @Operation(summary = "下载应用源码（ZIP 压缩包）")
+    public void downloadAppCode(@RequestParam Long appId, HttpServletResponse response) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID不合法");
+
+        // 获取当前登录用户
+        Long userId = UserHolder.getUserId();
+        User loginUser = userService.getById(userId);
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR, "用户未登录");
+
+        // 查询应用并校验权限（只有创建者可下载）
+        App app = appService.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        if (!app.getUserId().equals(loginUser.getId())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权下载该应用代码");
+        }
+
+        // 拼接源码目录路径: code_output/{codeGenType}_{appId}
+        String sourceDirName = app.getCodeGenType() + "_" + appId;
+        String sourceDirPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + sourceDirName;
+
+        // 下载文件名使用应用名称（去除非法字符），兜底使用 sourceDirName
+        String zipFileName = StrUtil.isBlank(app.getAppName())
+                ? sourceDirName
+                : app.getAppName().replaceAll("[\\\\/:*?\"<>|]", "_");
+        zipFileName = zipFileName + ".zip";
+
+        // 调用下载服务打包并写入响应
+        projectDownloadService.downloadAsZip(sourceDirPath, zipFileName, response);
     }
 
     // ==================== 管理员接口 ====================

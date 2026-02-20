@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
-import { deployApp } from '@/api/app'
+import { deployApp, downloadAppCode } from '@/api/app'
 import { getDeployVersions, rollbackDeploy, stopDeploy, type DeployHistory } from '@/api/deploy'
 import { getPreviewUrl } from '@/api/sse'
 import { ElMessage, ElDialog, ElButton, ElInput } from 'element-plus'
@@ -56,6 +56,22 @@ async function sendMessage() {
     // showPreview.value = false
     await appStore.sendMessage(msg)
     scrollToBottom()
+}
+
+// 下载相关
+const isDownloading = ref(false)
+
+async function handleDownload() {
+    if (!currentApp.value) return
+    isDownloading.value = true
+    try {
+        await downloadAppCode(currentApp.value.id)
+        ElMessage.success('代码下载成功')
+    } catch (error: any) {
+        ElMessage.error(error.message || '下载失败，请稍后重试')
+    } finally {
+        isDownloading.value = false
+    }
 }
 
 // 部署相关
@@ -270,6 +286,16 @@ async function loadMoreHistory() {
                         <el-icon class="el-icon--right"><ArrowDown /></el-icon>
                     </el-button>
                 </div>
+                <!-- 下载代码按钮（有预览/代码时显示） -->
+                <el-button
+                    v-if="showPreview && previewUrl"
+                    :loading="isDownloading"
+                    @click="handleDownload"
+                    class="download-btn"
+                >
+                    <el-icon><Download /></el-icon>
+                    下载代码
+                </el-button>
                 <el-button
                     v-if="showPreview && previewUrl"
                     type="primary"
@@ -583,6 +609,19 @@ async function loadMoreHistory() {
 .deploy-btn:hover {
     background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%);
 }
+
+.download-btn {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    border: none;
+    color: #1a6a4a;
+    font-weight: 500;
+}
+
+.download-btn:hover {
+    background: linear-gradient(135deg, #36c96b 0%, #2de0bf 100%);
+    color: #1a6a4a;
+}
+
 
 /* Main Body - 保持内容居中 */
 .chat-body {
