@@ -1,6 +1,5 @@
 package com.yff.aicodemother.utils;
 
-
 import cn.hutool.core.img.Img;
 import cn.hutool.core.img.ImgUtil;
 import cn.hutool.core.io.FileUtil;
@@ -37,20 +36,17 @@ public class WebScreenshotUtils {
 
     private static final WebDriver webDriver;
 
-
-    //使用静态代码块初始化 WebDriver，确保在类加载时就完成驱动的设置
+    // 使用静态代码块初始化 WebDriver，确保在类加载时就完成驱动的设置
     static {
         final int DEFAULT_WIDTH = 1600;
         final int DEFAULT_HEIGHT = 900;
         webDriver = initChromeDriver(DEFAULT_WIDTH, DEFAULT_HEIGHT);
     }
 
-
     @PreDestroy
     public void destroy() {
         webDriver.close();
     }
-
 
     public static WebDriver initChromeDriver(int width, int height) {
         try {
@@ -60,16 +56,17 @@ public class WebScreenshotUtils {
             ChromeOptions chromeOptions = new ChromeOptions();
             chromeOptions.addArguments("--headless"); // 无头模式
             chromeOptions.addArguments("--disable-gpu"); // 禁用 GPU 加速
-            chromeOptions.addArguments("--no-sandbox"); // 禁用沙盒模式  (docker 环境下需要)
+            chromeOptions.addArguments("--no-sandbox"); // 禁用沙盒模式 (docker 环境下需要)
             chromeOptions.addArguments("--disable-dev-shm-usage"); // 禁用 开发者shm调用
             chromeOptions.addArguments(String.format("--window-size=%d,%d", width, height)); // 设置窗口大小
             chromeOptions.addArguments("--disable-extensions"); // 禁用扩展
-            //设置用户代理
-            chromeOptions.addArguments("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
-            ChromeDriver driver = new ChromeDriver(chromeOptions); //创建驱动
-            //设置页面加载超时
+            // 设置用户代理
+            chromeOptions.addArguments(
+                    "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+            ChromeDriver driver = new ChromeDriver(chromeOptions); // 创建驱动
+            // 设置页面加载超时
             driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
-            //设置隐式等待
+            // 设置隐式等待
             driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
             return driver;
         } catch (Exception e) {
@@ -79,10 +76,8 @@ public class WebScreenshotUtils {
 
     }
 
-
-    //保存图片到文件
+    // 保存图片到文件
     private static void saveImage(byte[] imageBytes, String imagePath) {
-
 
         try {
             FileUtil.writeBytes(imageBytes, imagePath);
@@ -93,31 +88,30 @@ public class WebScreenshotUtils {
 
     }
 
-    //压缩图片
+    // 压缩图片
     private static void compressImage(String originalImagePath, String compressedImagePath) {
         final float COMPRESS_QUALITY = 0.3f; // 压缩质量，范围0-1，数值越小压缩率越高
         try {
             ImgUtil.compress(
                     FileUtil.file(originalImagePath),
                     FileUtil.file(compressedImagePath),
-                    COMPRESS_QUALITY
-            );
+                    COMPRESS_QUALITY);
         } catch (Exception e) {
             log.error("压缩图片失败:{} -> {}", originalImagePath, compressedImagePath, e);
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "压缩图片失败");
         }
     }
 
-
-    //等待页面加载完成再截图
+    // 等待页面加载完成再截图
     private static void waitForPageLoad(WebDriver driver) {
         try {
-            //创建等待对象
+            // 创建等待对象
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-            //等待页面加载完成，直到 document.readyState 为 complete   等待dom加载完成
-            wait.until(webDriver -> ((JavascriptExecutor) webDriver).executeScript("return document.readyState").equals("complete"));
+            // 等待页面加载完成，直到 document.readyState 为 complete 等待dom加载完成
+            wait.until(webDriver -> ((JavascriptExecutor) webDriver).executeScript("return document.readyState")
+                    .equals("complete"));
 
-            //额外等待一段时间,确保页面上的动态内容也加载完成
+            // 额外等待一段时间,确保页面上的动态内容也加载完成
             Thread.sleep(2000);
             log.info("页面加载完成");
         } catch (InterruptedException e) {
@@ -126,41 +120,53 @@ public class WebScreenshotUtils {
 
     }
 
-
-    public static String savaWebPageScreenshot(String webUrl) {
+    /**
+     * 对指定 URL 的页面进行截图，保存压缩后的图片，返回图片路径。
+     *
+     * <p>
+     * <b>线程安全说明</b>：WebDriver 本身非线程安全，静态共享实例在并发时会相互干扰
+     * （线程 A 跳转 URL-A 后还没截图，线程 B 跳转 URL-B 覆盖了页面，A 截到的是 B 的内容）。
+     * 这里对整个截图流程加类级别的 synchronized 锁，确保多个 @Async 任务串行执行，
+     * 牺牲少量并发性（截图是后台低频任务，串行完全够用）。
+     * </p>
+     *
+     * @param webUrl 目标网页 URL
+     * @return 压缩后的截图文件路径，失败返回 null
+     */
+    public static synchronized String savaWebPageScreenshot(String webUrl) {
         if (StrUtil.isBlank(webUrl)) {
             log.error("网页url不能为空");
             return null;
         }
 
         try {
-            //创建临时目录
+            // 创建临时目录
             String rootPath = System.getProperty("user.dir") + File.separator + "tmp" + File.separator + "screenshots"
                     + File.separator + UUID.randomUUID().toString().substring(0, 8);
             FileUtil.mkdir(rootPath);
 
-            //图片后缀
+            // 图片后缀
             final String IMAGE_SUFFIX = ".png";
-            //原始截图路径
+            // 原始截图路径
             String originalImagePath = rootPath + File.separator + RandomUtil.randomNumbers(5) + IMAGE_SUFFIX;
 
-            //访问网页
+            // 访问网页
             webDriver.get(webUrl);
 
-            //等待页面加载完成
+            // 等待页面加载完成
             waitForPageLoad(webDriver);
 
-            //截图并保存原始图片
+            // 截图并保存原始图片
             byte[] screenshotBytes = ((TakesScreenshot) webDriver).getScreenshotAs(OutputType.BYTES);
             saveImage(screenshotBytes, originalImagePath);
             log.info("原始截图保存成功 {}", originalImagePath);
 
-            //压缩图片
+            // 压缩图片
             final String COMPRESSION_SUFFIX = "_compressed.png";
             String compressedImagePath = rootPath + File.separator + RandomUtil.randomNumbers(5) + COMPRESSION_SUFFIX;
             compressImage(originalImagePath, compressedImagePath);
             log.info("压缩截图保存成功 {}", compressedImagePath);
-            //删除原始图片
+            // 删除原始图片
             FileUtil.del(originalImagePath);
             return compressedImagePath;
         } catch (Exception e) {
@@ -168,6 +174,5 @@ public class WebScreenshotUtils {
             return null;
         }
     }
-
 
 }
