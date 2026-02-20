@@ -4,6 +4,7 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -27,12 +28,10 @@ import com.yff.aicodemother.model.entity.DeployHistory;
 import com.yff.aicodemother.model.entity.User;
 import com.yff.aicodemother.model.enums.MessageTypeEnum;
 import com.yff.aicodemother.model.vo.AppVo;
-import com.yff.aicodemother.service.AppService;
-import com.yff.aicodemother.service.ChatHistoryService;
-import com.yff.aicodemother.service.DeployHistoryService;
-import com.yff.aicodemother.service.DockerContainerService;
+import com.yff.aicodemother.service.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
@@ -67,6 +66,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     private DockerContainerService dockerContainerService;
     @Autowired
     private DeployHistoryService deployHistoryService;
+
+    @Autowired
+    private ScreenshotService screenshotService;
 
     @Override
     public Long createApp(AppAddRequest appAddRequest, Long userId) {
@@ -279,6 +281,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
             updateApp.setDeployKey(deployUrl); // 存储部署 URL 到 deployKey 字段
             this.updateById(updateApp);
 
+            //异步生成截图并更新应用封面
+            generateAppScreenshotAsync(appId, deployUrl);
+
             return deployUrl;
         }
 
@@ -320,6 +325,21 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         this.updateById(updateApp);
 
         return String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
+    }
+
+    @Async
+    protected void generateAppScreenshotAsync(Long appId, String appUrl) {
+
+        //这里返回的是对象存储的url
+        String screenshotUrl = screenshotService.generateAndUploadScreenshot(appUrl);
+
+        //更新应用封面字段
+        LambdaUpdateWrapper<App> appLambdaUpdateWrapper = new LambdaUpdateWrapper<>();
+        appLambdaUpdateWrapper.eq(App::getId, appId)
+                .set(App::getCover, screenshotUrl);
+        boolean result = this.update(appLambdaUpdateWrapper);
+        ThrowUtils.throwIf(!result, ErrorCode.SYSTEM_ERROR, "更新应用封面失败");
+
     }
 
     @Override

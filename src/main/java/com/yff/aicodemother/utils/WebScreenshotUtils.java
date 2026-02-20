@@ -127,7 +127,6 @@ public class WebScreenshotUtils {
     }
 
 
-    @Bean
     public static String savaWebPageScreenshot(String webUrl) {
         if (StrUtil.isBlank(webUrl)) {
             log.error("网页url不能为空");

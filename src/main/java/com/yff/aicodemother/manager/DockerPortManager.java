@@ -1,4 +1,4 @@
-package com.yff.aicodemother.service;
+package com.yff.aicodemother.manager;
 
 import com.yff.aicodemother.constant.AppConstant;
 import lombok.extern.slf4j.Slf4j;
