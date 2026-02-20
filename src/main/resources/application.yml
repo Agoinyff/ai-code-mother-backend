@@ -12,13 +12,7 @@ spring:
     url: jdbc:mysql://localhost:3306/ai_code_mother?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
     username: root
     password: 123456
-  # redis
-  data:
-    redis:
-      port: 6379
-      host: 8.222.139.88
-      password: Yff20021203..
-      ttl: 3600 #默认缓存过期时间，单位秒  1小时
+
   profiles:
     active: local
   threads:
@@ -64,11 +58,5 @@ docker:
   # 预览/部署 URL 的访问主机（云服务器请改为公网IP）
   preview-host: 8.222.139.88
 
-cos:
-  client:
-    host: https://ai-code-mother-1405238909.cos.ap-singapore.myqcloud.com
-    secretId: IKIDcVWM0QdhYCdtwmW3NUOuDIAoGYdVIvKW
-    secretKey: 3sUsvkMkvviKiwzpRq7B2b7SbYLxNchb
-    region: ap-singapore
-    bucket: ai-code-mother-1405238909
+
 
