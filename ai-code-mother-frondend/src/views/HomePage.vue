@@ -12,7 +12,7 @@ const router = useRouter()
 const userStore = useUserStore()
 
 const prompt = ref('')
-const codeGenType = ref('html')
+const codeGenType = ref('auto')
 const isLoading = ref(false)
 const featuredApps = ref<AppVo[]>([])
 const myApps = ref<AppVo[]>([])
@@ -148,6 +148,13 @@ function handleAppClick(app: AppVo) {
                                     <div class="radio-title">Vue 多页面</div>
                                     <div class="radio-desc">生成完整Vue项目</div>
                                 </div>
+                            </div>
+                        </el-radio-button>
+                        <el-radio-button value="auto" class="auto-option">
+                            <div class="radio-content radio-content-center">
+                                <el-icon><MagicStick /></el-icon>
+                                <span class="radio-title">AI 自动</span>
+                                <span class="radio-desc">— AI 根据需求自动选择最佳类型</span>
                             </div>
                         </el-radio-button>
                     </el-radio-group>
@@ -308,12 +315,17 @@ function handleAppClick(app: AppVo) {
 
 .type-options {
     display: flex;
+    flex-wrap: wrap;
     gap: 12px;
     width: 100%;
 }
 
 .type-options :deep(.el-radio-button) {
     flex: 1;
+}
+
+.type-options :deep(.el-radio-button.auto-option) {
+    flex: 0 0 100%;
 }
 
 .type-options :deep(.el-radio-button__inner) {
@@ -337,6 +349,11 @@ function handleAppClick(app: AppVo) {
     align-items: center;
     gap: 10px;
     text-align: left;
+}
+
+.radio-content-center {
+    justify-content: center;
+    text-align: center;
 }
 
 .radio-content .el-icon {

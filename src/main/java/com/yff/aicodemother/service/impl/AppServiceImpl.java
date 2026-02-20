@@ -12,6 +12,7 @@ import com.yff.aicodemother.ai.core.AiCodeGeneratorFacade;
 import com.yff.aicodemother.ai.core.builder.VueProjectBuilder;
 import com.yff.aicodemother.ai.core.handler.StreamHandlerExecutor;
 import com.yff.aicodemother.ai.model.enums.CodeGenTypeEnum;
+import com.yff.aicodemother.ai.routing.AiCodeGenTypeRoutingService;
 import com.yff.aicodemother.constant.AppConstant;
 import com.yff.aicodemother.exception.BusinessException;
 import com.yff.aicodemother.exception.ErrorCode;
@@ -69,6 +70,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Autowired
     private ScreenshotService screenshotService;
+
+    @Autowired
+    private AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService;
 
     @Override
     public Long createApp(AppAddRequest appAddRequest, Long userId) {
@@ -220,11 +224,25 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         if (!app.getUserId().equals(user.getId())) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权访问该应用");
         }
-        // 获取应用的代码生成类型
+        // 获取应用的代码生成类型（支持 AI 自动路由）
         String codeGenType = app.getCodeGenType();
-        CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.getEnumByValue(codeGenType);
-        if (codeGenTypeEnum == null) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "应用的代码生成类型不合法");
+        CodeGenTypeEnum codeGenTypeEnum;
+
+        if (StrUtil.isBlank(codeGenType) || "auto".equals(codeGenType)) {
+            // AI 自动路由：根据用户 prompt 智能判断代码生成类型
+            log.info("应用 {} 使用AI自动路由判断代码生成类型, prompt: {}", appId, userMessage);
+            codeGenTypeEnum = aiCodeGenTypeRoutingService.routeCodeGenType(userMessage);
+            log.info("应用 {} AI路由结果: {}", appId, codeGenTypeEnum);
+            // 回写到 App 记录，后续对话沿用此类型
+            App updateApp = new App();
+            updateApp.setId(appId);
+            updateApp.setCodeGenType(codeGenTypeEnum.getValue());
+            this.updateById(updateApp);
+        } else {
+            codeGenTypeEnum = CodeGenTypeEnum.getEnumByValue(codeGenType);
+            if (codeGenTypeEnum == null) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "应用的代码生成类型不合法");
+            }
         }
 
         // 1. 保存用户消息到对话历史
@@ -281,7 +299,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
             updateApp.setDeployKey(deployUrl); // 存储部署 URL 到 deployKey 字段
             this.updateById(updateApp);
 
-            //异步生成截图并更新应用封面
+            // 异步生成截图并更新应用封面
             screenshotService.captureAndUpdateCoverAsync(appId, deployUrl);
 
             return deployUrl;

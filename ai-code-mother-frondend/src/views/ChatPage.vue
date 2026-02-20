@@ -36,13 +36,14 @@ function scrollToBottom() {
 }
 watch(chatMessages, scrollToBottom, { deep: true })
 
-// 监听生成状态变化，生成完成后刷新预览并重新检查代码是否就绪
-watch(isGenerating, (newVal, oldVal) => {
+// 监听生成状态变化，生成完成后重新加载应用信息（获取AI路由后的codeGenType）、刷新预览并检查代码
+watch(isGenerating, async (newVal, oldVal) => {
     if (oldVal === true && newVal === false) {
-        // 生成刚完成，刷新预览
-        setTimeout(() => {
+        // 生成刚完成，先重新加载应用信息（AI路由可能更新了codeGenType）
+        setTimeout(async () => {
+            await appStore.loadApp(appId.value)
             refreshPreview()
-            checkCodeReady() // 代码生成完成后检查是否可下载
+            checkCodeReady()
         }, 500)
     }
 })
@@ -249,6 +250,8 @@ onMounted(async () => {
         // 如果从主页跳转过来携带了初始消息，自动发送
         const initMessage = route.query.initMessage as string
         if (initMessage && initMessage.trim()) {
+            // 立即清除 URL 中的 initMessage 参数，防止刷新页面时重复提交
+            router.replace({ path: route.path, query: {} })
             await appStore.sendMessage(initMessage.trim())
             scrollToBottom()
         }
