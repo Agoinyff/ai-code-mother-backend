@@ -36,12 +36,13 @@ function scrollToBottom() {
 }
 watch(chatMessages, scrollToBottom, { deep: true })
 
-// 监听生成状态变化，生成完成后刷新预览
+// 监听生成状态变化，生成完成后刷新预览并重新检查代码是否就绪
 watch(isGenerating, (newVal, oldVal) => {
     if (oldVal === true && newVal === false) {
         // 生成刚完成，刷新预览
         setTimeout(() => {
             refreshPreview()
+            checkCodeReady() // 代码生成完成后检查是否可下载
         }, 500)
     }
 })
@@ -215,6 +216,25 @@ function openPreviewInNewTab() {
     }
 }
 
+// ===== 代码是否就绪（预览静态文件是否存在）=====
+// 向预览 URL 发一个 HEAD 请求：
+//   HTTP 200 => 后端 StaticResourceController 找到了文件，代码已生成，可以下载
+//   HTTP 404 => 文件不存在，代码尚未生成，隐藏下载按钮
+const isCodeReady = ref(false)
+
+async function checkCodeReady() {
+    if (!previewUrl.value) {
+        isCodeReady.value = false
+        return
+    }
+    try {
+        const res = await fetch(previewUrl.value, { method: 'HEAD' })
+        isCodeReady.value = res.ok  // 200-299 才说明文件真实存在
+    } catch {
+        isCodeReady.value = false
+    }
+}
+
 // 加载应用
 onMounted(async () => {
     try {
@@ -223,6 +243,8 @@ onMounted(async () => {
         scrollToBottom()
         // 检查是否已有运行中的部署
         await loadRunningDeploy()
+        // 检查代码是否已生成（决定是否显示下载按钮）
+        checkCodeReady()
 
         // 如果从主页跳转过来携带了初始消息，自动发送
         const initMessage = route.query.initMessage as string
@@ -286,9 +308,9 @@ async function loadMoreHistory() {
                         <el-icon class="el-icon--right"><ArrowDown /></el-icon>
                     </el-button>
                 </div>
-                <!-- 下载代码按钮（有预览/代码时显示） -->
+                <!-- 下载代码按钮（预览静态文件存在时才显示，即代码确实生成完毕可浏览） -->
                 <el-button
-                    v-if="showPreview && previewUrl"
+                    v-if="isCodeReady"
                     :loading="isDownloading"
                     @click="handleDownload"
                     class="download-btn"

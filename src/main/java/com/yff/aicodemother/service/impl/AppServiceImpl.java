@@ -282,7 +282,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
             this.updateById(updateApp);
 
             //异步生成截图并更新应用封面
-            generateAppScreenshotAsync(appId, deployUrl);
+            screenshotService.captureAndUpdateCoverAsync(appId, deployUrl);
 
             return deployUrl;
         }
@@ -325,21 +325,6 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         this.updateById(updateApp);
 
         return String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
-    }
-
-    @Async
-    protected void generateAppScreenshotAsync(Long appId, String appUrl) {
-
-        //这里返回的是对象存储的url
-        String screenshotUrl = screenshotService.generateAndUploadScreenshot(appUrl);
-
-        //更新应用封面字段
-        LambdaUpdateWrapper<App> appLambdaUpdateWrapper = new LambdaUpdateWrapper<>();
-        appLambdaUpdateWrapper.eq(App::getId, appId)
-                .set(App::getCover, screenshotUrl);
-        boolean result = this.update(appLambdaUpdateWrapper);
-        ThrowUtils.throwIf(!result, ErrorCode.SYSTEM_ERROR, "更新应用封面失败");
-
     }
 
     @Override
