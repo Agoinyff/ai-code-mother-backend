@@ -97,12 +97,10 @@ export function chatToGenCode(
 }
 
 /**
- * 获取网站预览 URL（直接访问后端，绕过 Vite dev server 的 SPA fallback）
+ * 获取网站预览 URL
+ * 使用相对路径，开发环境下通过 Vite proxy 代理到后端，生产环境下前后端同域
  * @param deployKey 部署 key（格式：codeGenType_appId）
  */
 export function getPreviewUrl(deployKey: string): string {
-    // 直接指向后端地址，避免 Vite dev server 的 SPA fallback 拦截 HTML 请求
-    // 生产环境下后端和前端同域，可改为相对路径
-    const backendBase = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'
-    return `${backendBase}/api/static/${deployKey}/`
+    return `/api/static/${deployKey}/`
 }

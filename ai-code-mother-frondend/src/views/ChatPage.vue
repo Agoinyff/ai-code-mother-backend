@@ -6,6 +6,7 @@ import { deployApp, downloadAppCode } from '@/api/app'
 import { getDeployVersions, rollbackDeploy, stopDeploy, type DeployHistory } from '@/api/deploy'
 import { getPreviewUrl } from '@/api/sse'
 import { ElMessage, ElDialog, ElButton, ElInput } from 'element-plus'
+import { useVisualEditor } from '@/composables/useVisualEditor'
 
 const route = useRoute()
 const router = useRouter()
@@ -24,6 +25,40 @@ const iframeRef = ref<HTMLIFrameElement>()
 
 // 是否显示预览面板（计算属性，有预览URL就显示）
 const showPreview = computed(() => !!previewUrl.value)
+
+// ===== 可视化编辑 =====
+const {
+    isEditMode,
+    selectedElements,
+    toggleEditMode,
+    exitEditMode,
+    removeSelectedElement,
+    clearSelections,
+    buildPromptWithElements,
+    enterEditMode,
+} = useVisualEditor()
+
+// 切换编辑模式
+function handleToggleEditMode() {
+    if (!iframeRef.value) {
+        ElMessage.warning('请先生成代码并等待预览加载')
+        return
+    }
+    toggleEditMode(iframeRef.value)
+}
+
+// 当 iframe 重新加载后，如果还处于编辑模式，重新注入脚本
+function handleIframeLoad() {
+    if (isEditMode.value && iframeRef.value) {
+        // iframe 重新加载会清除注入的内容，需要重新注入
+        exitEditMode()
+        nextTick(() => {
+            if (iframeRef.value) {
+                enterEditMode(iframeRef.value)
+            }
+        })
+    }
+}
 
 // 滚动到底部
 const chatListRef = ref<HTMLElement>()
@@ -52,11 +87,19 @@ watch(isGenerating, async (newVal, oldVal) => {
 const userMessage = ref('')
 async function sendMessage() {
     if (!userMessage.value.trim() || isGenerating.value) return
-    const msg = userMessage.value.trim()
+    let msg = userMessage.value.trim()
     userMessage.value = ''
-    // 开始生成时隐藏预览（可选，如果要保留之前预览可以去掉）
-    // showPreview.value = false
-    await appStore.sendMessage(msg)
+
+    // 如果有选中元素，将元素信息添加到提示词中
+    const enhancedMsg = buildPromptWithElements(msg)
+
+    // 发送后清除选中元素并退出编辑模式
+    if (isEditMode.value) {
+        clearSelections()
+        exitEditMode()
+    }
+
+    await appStore.sendMessage(enhancedMsg)
     scrollToBottom()
 }
 
@@ -388,16 +431,43 @@ async function loadMoreHistory() {
 
                     <!-- 输入框 -->
                     <div class="chat-input">
+                        <!-- 选中元素展示区 -->
+                        <div v-if="selectedElements.length > 0" class="selected-elements">
+                            <span class="selected-label">📌 已选中元素：</span>
+                            <div class="selected-tags">
+                                <span
+                                    v-for="(el, index) in selectedElements"
+                                    :key="el.cssSelector"
+                                    class="selected-tag"
+                                >
+                                    <span class="tag-name">&lt;{{ el.tagName.toLowerCase() }}&gt;</span>
+                                    <span v-if="el.id" class="tag-id">#{{ el.id }}</span>
+                                    <span v-else-if="el.className" class="tag-class">.{{ el.className.split(' ')[0] }}</span>
+                                    <span v-if="el.textPreview" class="tag-text">「{{ el.textPreview.substring(0, 15) }}{{ el.textPreview.length > 15 ? '...' : '' }}」</span>
+                                    <span class="tag-remove" @click="removeSelectedElement(index)">×</span>
+                                </span>
+                            </div>
+                        </div>
                         <ElInput
                             v-model="userMessage"
                             type="textarea"
                             :rows="3"
                             resize="none"
-                            placeholder="继续描述您的需求，AI 会帮您完善..."
+                            :placeholder="isEditMode ? '选中页面元素后，描述您想要的修改...' : '继续描述您的需求，AI 会帮您完善...'"
                             :disabled="isGenerating"
                             @keydown.enter.exact.prevent="sendMessage"
                         />
                         <div class="input-actions">
+                            <el-button
+                                v-if="showPreview && previewUrl"
+                                :type="isEditMode ? 'warning' : 'default'"
+                                :class="{ 'edit-btn-active': isEditMode }"
+                                @click="handleToggleEditMode"
+                                class="edit-mode-btn"
+                            >
+                                <el-icon><EditPen /></el-icon>
+                                {{ isEditMode ? '退出编辑' : '编辑模式' }}
+                            </el-button>
                             <el-button
                                 type="primary"
                                 :loading="isGenerating"
@@ -435,6 +505,7 @@ async function loadMoreHistory() {
                                 class="preview-iframe"
                                 frameborder="0"
                                 sandbox="allow-scripts allow-same-origin allow-forms"
+                                @load="handleIframeLoad"
                             ></iframe>
                         </div>
                     </div>
@@ -867,6 +938,104 @@ async function loadMoreHistory() {
 .chat-input :deep(.el-textarea__inner):focus {
     border-color: #667eea;
     box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+}
+
+/* ===== 选中元素展示区 ===== */
+.selected-elements {
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border: 1px solid #fbbf24;
+    border-radius: 12px;
+    margin-bottom: 10px;
+}
+
+.selected-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #92400e;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.selected-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.selected-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #374151;
+    transition: all 0.2s;
+    max-width: 260px;
+    overflow: hidden;
+}
+
+.selected-tag:hover {
+    border-color: #e74c3c;
+    background: #fff;
+}
+
+.tag-name {
+    color: #7c3aed;
+    font-weight: 600;
+    font-family: monospace;
+}
+
+.tag-id {
+    color: #ea580c;
+    font-family: monospace;
+}
+
+.tag-class {
+    color: #2563eb;
+    font-family: monospace;
+}
+
+.tag-text {
+    color: #6b7280;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tag-remove {
+    cursor: pointer;
+    color: #9ca3af;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0 2px;
+    margin-left: 2px;
+    border-radius: 50%;
+    transition: all 0.15s;
+}
+
+.tag-remove:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+/* ===== 编辑模式按钮 ===== */
+.edit-mode-btn {
+    transition: all 0.3s;
+}
+
+.edit-btn-active {
+    animation: edit-pulse 2s infinite;
+}
+
+@keyframes edit-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
 }
 
 .input-actions {
