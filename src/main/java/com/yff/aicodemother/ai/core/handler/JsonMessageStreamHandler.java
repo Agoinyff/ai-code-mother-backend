@@ -72,7 +72,7 @@ public class JsonMessageStreamHandler {
                     chatHistoryService.saveChatMessage(aiResponse);
                     // 异步构建Vue项目
                     String projectPath = AppConstant.CODE_OUTPUT_ROOT_DIR + "/vue_project_" + appId;
-                    vueProjectBuilder.buildProjectAsync(projectPath);
+                    vueProjectBuilder.buildProjectAsync(projectPath, appId);
                 }).doOnError(error -> {
                     // 流出错时，保存错误消息到对话历史
                     ChatHistoryAddRequest errorHistoryRequest = new ChatHistoryAddRequest();

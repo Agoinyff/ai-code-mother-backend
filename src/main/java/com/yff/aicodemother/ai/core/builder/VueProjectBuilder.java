@@ -1,17 +1,14 @@
 package com.yff.aicodemother.ai.core.builder;
 
 import cn.hutool.core.util.RuntimeUtil;
-
-
-import cn.hutool.core.util.RuntimeUtil;
-import dev.langchain4j.agent.tool.P;
+import com.yff.aicodemother.service.ScreenshotService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
-import java.lang.reflect.Field;
 import java.util.concurrent.TimeUnit;
 
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
@@ -23,23 +20,56 @@ import org.springframework.stereotype.Component;
 @Component
 public class VueProjectBuilder {
 
+    @Autowired
+    private ScreenshotService screenshotService;
+
+    @Value("${server.port:8080}")
+    private int serverPort;
+
+    /**
+     * 构建状态跟踪：appId -> 状态 ("building" / "done" / "failed")
+     */
+    private final java.util.Map<Long, String> buildStatusMap = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * 查询构建状态
+     *
+     * @param appId 应用ID
+     * @return "building" / "done" / "failed" / null(无记录)
+     */
+    public String getBuildStatus(Long appId) {
+        return buildStatusMap.get(appId);
+    }
 
     /**
      * 使用线程异步构建Vue项目
      *
      * @param projectPath 项目路径
+     * @param appId       应用ID（用于构建完成后触发截图）
      */
     @Async
-    public void buildProjectAsync(String projectPath) {
-        //在单独的线程中执行构建任务，避免阻塞主线程
-            try {
-                buildProject(projectPath);
-            } catch (Exception e) {
-                log.error("构建Vue项目时发生异常: {}", e.getMessage(), e);
+    public void buildProjectAsync(String projectPath, Long appId) {
+        if (appId != null) {
+            buildStatusMap.put(appId, "building");
+        }
+        try {
+            boolean success = buildProject(projectPath);
+            if (appId != null) {
+                buildStatusMap.put(appId, success ? "done" : "failed");
             }
-
+            if (success && appId != null) {
+                // 构建成功后异步截图
+                String previewUrl = String.format("http://localhost:%d/api/static/vue_project_%d/", serverPort, appId);
+                log.info("Vue 项目构建成功，触发截图: appId={}, url={}", appId, previewUrl);
+                screenshotService.captureAndUpdateCoverAsync(appId, previewUrl);
+            }
+        } catch (Exception e) {
+            if (appId != null) {
+                buildStatusMap.put(appId, "failed");
+            }
+            log.error("构建Vue项目时发生异常: {}", e.getMessage(), e);
+        }
     }
-
 
     /**
      * 构建Vue项目
@@ -54,26 +84,33 @@ public class VueProjectBuilder {
             return false;
         }
 
-        //检查package.json文件是否存在
+        // 检查package.json文件是否存在
         File packageJson = new File(projectDir, "package.json");
         if (!packageJson.exists()) {
             log.error("package.json文件不存在: {}", packageJson.getAbsolutePath());
             return false;
         }
 
-        //执行npm install
+        // 删除旧的 dist 目录（确保前端轮询能准确检测到新的构建完成）
+        File distDir = new File(projectDir, "dist");
+        if (distDir.exists()) {
+            cn.hutool.core.io.FileUtil.del(distDir);
+            log.info("已清理旧的 dist 目录: {}", distDir.getAbsolutePath());
+        }
+
+        // 执行npm install
         if (!executeNpmInstall(projectDir)) {
             log.error("npm install命令执行失败");
             return false;
         }
-        //执行npm run build
+        // 执行npm run build
         if (!executeNpmBuild(projectDir)) {
             log.error("npm run build命令执行失败");
             return false;
         }
 
-        //验证dist目录是否生成
-        File distDir = new File(projectDir, "dist");
+        // 验证dist目录是否生成
+        // File distDir = new File(projectDir, "dist");
         if (!distDir.exists()) {
             log.error("构建失败，dist目录未生成: {}", distDir.getAbsolutePath());
             return false;
@@ -96,9 +133,9 @@ public class VueProjectBuilder {
 
         try {
             log.info("在目录{}中执行命令：{}", workingDir.getAbsolutePath(), command);
-            Process process = RuntimeUtil.exec(null, workingDir, command.split("\\s+"));//命令分割为数组
+            Process process = RuntimeUtil.exec(null, workingDir, command.split("\\s+"));// 命令分割为数组
 
-            //等待进程完成，设置超时
+            // 等待进程完成，设置超时
             boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
             if (!finished) {
                 log.error("命令执行超时：{},强制终止进程", command);
@@ -118,9 +155,7 @@ public class VueProjectBuilder {
             return false;
         }
 
-
     }
-
 
     /**
      * 执行npm install命令安装依赖
@@ -133,7 +168,6 @@ public class VueProjectBuilder {
         String command = String.format("%s install", buildCommand("npm"));
         return executeCommand(projectDir, command, 300);
     }
-
 
     /**
      * 执行npm run build命令构建项目
@@ -170,4 +204,3 @@ public class VueProjectBuilder {
         return System.getProperty("os.name").toLowerCase().contains("windows");
     }
 }
-

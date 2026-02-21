@@ -39,7 +39,7 @@ public class FileWriteTool {
             Path path = Paths.get(relativePath); //使用工具转换字符串路径为对象
             if (!path.isAbsolute()) {
                 //判断是否是绝对路径，不是就进行处理，创建基于appId的项目目录
-                String projectDirName = "vue_project" + appId;
+                String projectDirName = "vue_project_" + appId;
                 Path projectRoot = Paths.get(AppConstant.CODE_OUTPUT_ROOT_DIR, projectDirName);
                 path = projectRoot.resolve(relativePath);
             }

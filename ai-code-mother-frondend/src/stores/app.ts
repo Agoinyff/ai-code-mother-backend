@@ -120,8 +120,17 @@ export const useAppStore = defineStore('app', () => {
                         isGenerating.value = false
                         currentResponse.value = ''
                         cancelSSE = null
-                        // 刷新预览
-                        updatePreviewUrl()
+                        console.log('[AppStore] SSE onComplete, codeGenType:', currentApp.value?.codeGenType)
+                        // VUE_PROJECT 需要等待异步构建完成后再刷新预览
+                        if (currentApp.value?.codeGenType === 'vue_project') {
+                            // 清空预览 URL，让 iframe 隐藏，显示"等待生成"占位
+                            console.log('[AppStore] VUE_PROJECT 检测到，清空预览并开始轮询构建状态')
+                            previewUrl.value = ''
+                            pollVueBuildReady()
+                        } else {
+                            // 非 VUE_PROJECT 直接刷新预览
+                            updatePreviewUrl()
+                        }
                         resolve()
                     },
                     onError: (error) => {
@@ -151,6 +160,47 @@ export const useAppStore = defineStore('app', () => {
         currentApp.value = null
         chatMessages.value = []
         previewUrl.value = ''
+    }
+
+    // 等待 VUE_PROJECT 异步构建完成后刷新预览
+    function pollVueBuildReady() {
+        if (!currentApp.value) return
+
+        const appId = currentApp.value.id
+        let attempts = 0
+        const maxAttempts = 40 // 最多轮询 40 次（约 2 分钟）
+
+        const timer = setInterval(async () => {
+            attempts++
+            try {
+                const token = localStorage.getItem('auth_token') || ''
+                const response = await fetch(`/api/app/build/status?appId=${appId}`, {
+                    headers: { 'access-token': token }
+                })
+                if (response.ok) {
+                    const result = await response.json()
+                    console.log(`[AppStore] 轮询构建状态 #${attempts}: data=${result.data}`)
+                    if (result.data === 'done') {
+                        clearInterval(timer)
+                        console.log('[AppStore] Vue 项目构建完成，刷新预览')
+                        refreshPreview()
+                        return
+                    }
+                    if (result.data === 'failed') {
+                        clearInterval(timer)
+                        console.error('[AppStore] Vue 项目构建失败')
+                        return
+                    }
+                    // 'building' 或 null → 继续轮询
+                }
+            } catch {
+                // 忽略网络错误，继续轮询
+            }
+            if (attempts >= maxAttempts) {
+                clearInterval(timer)
+                console.warn('[AppStore] Vue 项目构建超时，停止轮询')
+            }
+        }, 3000)
     }
 
     // 刷新预览

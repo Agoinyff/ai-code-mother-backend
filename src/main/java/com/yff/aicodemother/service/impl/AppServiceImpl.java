@@ -37,8 +37,15 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * 应用 服务层实现。
@@ -253,7 +260,16 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         userHistoryRequest.setMessageType(MessageTypeEnum.USER.getValue());
         chatHistoryService.saveChatMessage(userHistoryRequest);
 
-        // 2. 生成代码流并保存 AI 响应
+        // 2. VUE_PROJECT 类型：将源文件内容注入到 prompt 中，帮助 AI 定位需要修改的组件
+        if (codeGenTypeEnum == CodeGenTypeEnum.VUE_PROJECT) {
+            String sourceContext = readVueSourceFiles(appId);
+            if (StrUtil.isNotBlank(sourceContext)) {
+                userMessage = sourceContext + "\n\n" + userMessage;
+                log.info("已为 VUE_PROJECT 应用 {} 注入源文件上下文", appId);
+            }
+        }
+
+        // 3. 生成代码流并保存 AI 响应
         Flux<String> codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream(userMessage, codeGenTypeEnum, appId);
 
         return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, user, codeGenTypeEnum);
@@ -438,6 +454,55 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
                 .set("deployKey", null)
                 .eq("id", appId));
         log.info("应用 {} 部署容器已停止下线", appId);
+    }
+
+    /**
+     * 读取 Vue 项目 src/ 目录下的所有源文件内容，用于注入到 AI prompt
+     * 读取范围：.vue / .js / .css / .json 文件
+     *
+     * @param appId 应用ID
+     * @return 格式化的源文件内容字符串，若无源文件则返回空字符串
+     */
+    private String readVueSourceFiles(Long appId) {
+        String projectDirName = "vue_project_" + appId;
+        Path srcDir = Paths.get(AppConstant.CODE_OUTPUT_ROOT_DIR, projectDirName, "src");
+
+        if (!Files.exists(srcDir) || !Files.isDirectory(srcDir)) {
+            log.warn("Vue 项目 src 目录不存在: {}", srcDir);
+            return "";
+        }
+
+        List<String> extensions = Arrays.asList(".vue", ".js", ".css", ".json");
+        StringBuilder sb = new StringBuilder();
+        sb.append("[当前项目源文件，请根据以下源码定位需要修改的文件]\n");
+
+        try (Stream<Path> walk = Files.walk(srcDir)) {
+            Path projectRoot = srcDir.getParent(); // vue_project_{appId}
+            walk.filter(Files::isRegularFile)
+                    .filter(p -> {
+                        String name = p.getFileName().toString().toLowerCase();
+                        return extensions.stream().anyMatch(name::endsWith);
+                    })
+                    .sorted()
+                    .forEach(filePath -> {
+                        try {
+                            // 使用相对于项目根目录的路径，如 src/App.vue
+                            String relativePath = projectRoot.relativize(filePath).toString().replace('\\', '/');
+                            String content = Files.readString(filePath, StandardCharsets.UTF_8);
+                            // 转义 {{ 和 }}，避免 langchain4j 将 Vue 模板语法误认为 prompt 模板变量
+                            content = content.replace("{{", "{ {").replace("}}", "} }");
+                            sb.append("\n--- ").append(relativePath).append(" ---\n");
+                            sb.append(content).append("\n");
+                        } catch (IOException e) {
+                            log.warn("读取源文件失败: {}", filePath, e);
+                        }
+                    });
+        } catch (IOException e) {
+            log.error("遍历 Vue 项目源文件目录失败: {}", srcDir, e);
+            return "";
+        }
+
+        return sb.toString();
     }
 
 }

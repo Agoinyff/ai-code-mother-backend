@@ -77,11 +77,57 @@ watch(isGenerating, async (newVal, oldVal) => {
         // 生成刚完成，先重新加载应用信息（AI路由可能更新了codeGenType）
         setTimeout(async () => {
             await appStore.loadApp(appId.value)
-            refreshPreview()
-            checkCodeReady()
+            // VUE_PROJECT 需要等待异步构建完成
+            if (currentApp.value?.codeGenType === 'vue_project') {
+                console.log('[ChatPage] VUE_PROJECT 检测到，开始轮询构建状态...')
+                pollBuildStatusThenRefresh()
+            } else {
+                refreshPreview()
+                checkCodeReady()
+            }
         }, 500)
     }
 })
+
+// 轮询后端构建状态，构建完成后再刷新预览
+function pollBuildStatusThenRefresh() {
+    if (!currentApp.value) return
+    const appIdVal = currentApp.value.id
+    let attempts = 0
+    const maxAttempts = 40 // 最多 40 次 × 3s = 2 分钟
+
+    const timer = setInterval(async () => {
+        attempts++
+        try {
+            const token = localStorage.getItem('auth_token') || ''
+            const res = await fetch(`/api/app/build/status?appId=${appIdVal}`, {
+                headers: { 'access-token': token }
+            })
+            if (res.ok) {
+                const result = await res.json()
+                console.log(`[ChatPage] 轮询构建状态 #${attempts}: data=${result.data}`)
+                if (result.data === 'done') {
+                    clearInterval(timer)
+                    console.log('[ChatPage] Vue 项目构建完成，刷新预览')
+                    refreshPreview()
+                    checkCodeReady()
+                    return
+                }
+                if (result.data === 'failed') {
+                    clearInterval(timer)
+                    console.error('[ChatPage] Vue 项目构建失败')
+                    return
+                }
+            }
+        } catch {
+            // 忽略网络错误
+        }
+        if (attempts >= maxAttempts) {
+            clearInterval(timer)
+            console.warn('[ChatPage] Vue 项目构建超时')
+        }
+    }, 3000)
+}
 
 // 消息输入
 const userMessage = ref('')

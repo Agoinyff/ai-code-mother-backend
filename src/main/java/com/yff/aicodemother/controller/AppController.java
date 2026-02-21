@@ -46,6 +46,8 @@ public class AppController {
     private UserService userService;
     @Autowired
     private ProjectDownloadService projectDownloadService;
+    @Autowired
+    private com.yff.aicodemother.ai.core.builder.VueProjectBuilder vueProjectBuilder;
 
     // ==================== 普通用户接口 ====================
 
@@ -318,6 +320,22 @@ public class AppController {
 
         // 调用下载服务打包并写入响应
         projectDownloadService.downloadAsZip(sourceDirPath, zipFileName, response);
+    }
+
+    // ==================== 构建状态查询 ====================
+
+    /**
+     * 查询 VUE_PROJECT 的构建状态
+     *
+     * @param appId 应用ID
+     * @return 构建状态：building / done / failed / null(无构建记录)
+     */
+    @GetMapping("/build/status")
+    @Operation(summary = "查询 Vue 项目构建状态")
+    public BaseResponse<String> getBuildStatus(@RequestParam Long appId) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID不合法");
+        String status = vueProjectBuilder.getBuildStatus(appId);
+        return ResultUtils.success(status);
     }
 
     // ==================== 管理员接口 ====================
